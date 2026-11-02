@@ -66,13 +66,15 @@ Ta photo en pied ne quitte ton dressing qu'au moment d'un essayage.
 2. Ouvre le .dmg et glisse **Atelier Dressing** dans **Applications**.
 3. Premier lancement : l'app n'est pas signée par un compte développeur Apple, donc macOS la bloque. Double-clique dessus une fois, puis va dans **Réglages Système → Confidentialité et sécurité** et clique **Ouvrir quand même**. Alternative : `xattr -cr "/Applications/Atelier Dressing.app"`.
 
-L'app Mac est recompilée par GitHub Actions à chaque modification de `frontend/` sur `main` (workflow « App Mac »). Pour l'app Mac synchronisée, ajoute les variables du dépôt `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` et `APP_URL` (Settings → Secrets and variables → Actions → Variables).
+L'app Mac est recompilée par GitHub Actions à chaque modification de `frontend/` sur `main` (workflow « App Mac »).
 
 ### Sur iPhone
 
-1. Déploie `frontend/` sur Vercel (dossier racine `frontend`, `vercel.json` fourni), avec les variables `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY` pour le mode synchronisé.
-2. Ouvre l'adresse dans **Safari**, touche **Partager**, puis **Sur l'écran d'accueil**.
-3. **Scanner → Prendre une photo** ouvre directement l'appareil photo.
+1. Ouvre **https://atelier-dressing.vercel.app** dans **Safari**.
+2. Touche **Partager**, puis **Sur l'écran d'accueil**, puis **Ajouter**.
+3. Ouvre l'app depuis son icône et connecte-toi avec ton compte Cuisine (le même e-mail et mot de passe). **Scanner → Prendre une photo** ouvre directement l'appareil photo.
+
+L'app web est hébergée sur Vercel (équipe FiKozZ, projet `atelier-dressing`, dossier racine `frontend`).
 
 ## Architecture
 

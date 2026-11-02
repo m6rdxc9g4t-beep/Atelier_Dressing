@@ -45,10 +45,8 @@ jobs:
 
       - name: Compiler l'app
         env:
-          # Variables du dépôt (Settings → Secrets and variables → Actions → Variables)
-          VITE_APP_URL: ${{ vars.APP_URL }}
-          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          # Supabase : valeurs intégrées dans src/lib/supabase.ts (projet partagé avec Cuisine)
+          VITE_APP_URL: ${{ vars.APP_URL || 'https://atelier-dressing.vercel.app' }}
         run: npx tauri build --target universal-apple-darwin
 
       - name: Préparer les fichiers
