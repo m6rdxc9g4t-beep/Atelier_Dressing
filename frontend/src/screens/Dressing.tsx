@@ -18,8 +18,9 @@ import {
 } from "../lib/categories";
 import { dateCourte, depuis, euros } from "../lib/dates";
 import { detourer, OPTIONS_DETOURAGE, type Pixels } from "../lib/detourage";
-import { useDonnees } from "../lib/donnees";
-import { pixelsVersBlob, versPixels } from "../lib/images";
+import { useDonnees, useReglages } from "../lib/donnees";
+import { analyserVetement, IAIndisponible, NOM_MOTEUR } from "../lib/ia";
+import { imagePourIA, pixelsVersBlob, versPixels } from "../lib/images";
 import { messageErreur } from "../lib/supabase";
 import type { Categorie, Saison, Vetement } from "../lib/types";
 
@@ -170,7 +171,9 @@ export function Dressing({ versScanner, versCabine }: { versScanner: () => void;
 }
 
 function Detail({ v, onFermer, versCabine }: { v: Vetement | null; onFermer: () => void; versCabine: () => void }) {
-  const { vetements, profil, compteurs, derniers, enregistrerVetement, supprimerVetement } = useDonnees();
+  const { vetements, profil, compteurs, derniers, depot, enregistrerVetement, supprimerVetement } = useDonnees();
+  const [reglages] = useReglages();
+  const [ajustage, setAjustage] = useState(false);
   const cabine = useCabine();
   const toast = useToast();
   const [mode, setMode] = useState<"fiche" | "modifier" | "photo">("fiche");
@@ -186,6 +189,28 @@ function Detail({ v, onFermer, versCabine }: { v: Vetement | null; onFermer: () 
   if (!v) return <Feuille ouverte={false} titre="" onFermer={onFermer}>{null}</Feuille>;
 
   const nb = compteurs.get(v.id) ?? 0;
+
+  // Demande à l'IA où sont les épaules / la ceinture sur la photo, pour bien l'ajuster sur toi
+  async function reajuster() {
+    if (!v) return;
+    const cle = v.image ?? v.image_originale;
+    const b = cle ? await depot.lireImage(cle) : null;
+    if (!b) return toast("Photo introuvable", { erreur: true });
+    setAjustage(true);
+    try {
+      const { analyse, moteur } = await analyserVetement(await imagePourIA(b), reglages);
+      if (!analyse.ajustement) {
+        toast(`${NOM_MOTEUR[moteur]} n'a pas trouvé de repères fiables : la pièce reste calée sur la mesure de la photo.`, { erreur: true });
+      } else {
+        await enregistrerVetement({ ...v, ajustement: analyse.ajustement, calage: { echelle: 1, dx: 0, dy: 0 } });
+        toast(`Pièce réajustée sur ton mannequin (${NOM_MOTEUR[moteur]})`);
+      }
+    } catch (e) {
+      toast(e instanceof IAIndisponible ? e.message : messageErreur(e), { erreur: true });
+    } finally {
+      setAjustage(false);
+    }
+  }
   const dernier = derniers.get(v.id);
 
   async function sauver(x: Vetement, message: string) {
@@ -312,6 +337,12 @@ function Detail({ v, onFermer, versCabine }: { v: Vetement | null; onFermer: () 
             <button className="bouton bouton--discret" aria-pressed={v.favori} onClick={() => sauver({ ...v, favori: !v.favori }, v.favori ? "Retirée des favoris" : "Ajoutée aux favoris")}>
               <Heart size={16} aria-hidden fill={v.favori ? "currentColor" : "none"} /> {v.favori ? "Favori" : "Favori"}
             </button>
+            {["haut", "bas", "robe", "veste"].includes(v.categorie) && (
+              <button className="bouton bouton--discret" onClick={reajuster} disabled={ajustage}>
+                {ajustage ? <LoaderCircle className="tourne" size={16} aria-hidden /> : <Sparkles size={16} aria-hidden />}
+                {ajustage ? "Ajustement…" : "Réajuster sur moi"}
+              </button>
+            )}
             {v.image_originale && (
               <button className="bouton bouton--discret" onClick={() => setMode("photo")}>
                 <Scissors size={16} aria-hidden /> Retoucher la photo
@@ -393,7 +424,7 @@ function Retouche({ v, onFini }: { v: Vetement; onFini: () => void }) {
       const cle = `${v.id}-${Date.now().toString(36)}.${ext}`;
       await depot.ecrireImage(cle, blob);
       const ancienne = v.image;
-      await enregistrerVetement({ ...v, image: cle });
+      await enregistrerVetement({ ...v, image: cle, ajustement: null }); // nouveau cadrage : anciens repères caducs
       if (ancienne && ancienne !== v.image_originale) depot.supprimerImage(ancienne).catch(() => {});
       toast("Nouvelle photo enregistrée");
       onFini();

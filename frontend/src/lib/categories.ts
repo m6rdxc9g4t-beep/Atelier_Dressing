@@ -1,6 +1,5 @@
 // Référentiel : catégories, saisons, occasions, longueurs.
-// Les mêmes listes existent côté SQL (contraintes check) et dans la fonction
-// Edge ia-dressing : modifier les trois côtés.
+// Les mêmes listes existent côté SQL (contraintes check) : modifier les deux côtés.
 
 import type { Categorie, Longueur, Occasion, Saison } from "./types";
 

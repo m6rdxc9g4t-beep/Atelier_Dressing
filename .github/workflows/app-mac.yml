@@ -49,6 +49,10 @@ jobs:
           VITE_APP_URL: ${{ vars.APP_URL || 'https://atelier-dressing.vercel.app' }}
         run: npx tauri build --target universal-apple-darwin
 
+      - name: Tester le lancement isolé de la CLI Claude
+        working-directory: frontend/src-tauri
+        run: cargo test --lib claude
+
       - name: Préparer les fichiers
         id: fichiers
         run: |

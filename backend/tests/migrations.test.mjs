@@ -113,8 +113,23 @@ console.log("✓ photos : bucket privé, un dossier par compte");
 
 // --- Temps réel
 const pub = await db.query("select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1");
-assert.deepEqual(pub.rows.map((r) => r.tablename), ["essayages", "ports", "profils", "tenues", "vetements"]);
-console.log("✓ temps réel : vêtements, tenues, journal, profil et essayages publiés");
+assert.deepEqual(pub.rows.map((r) => r.tablename), ["essayages", "ia_demandes", "ports", "profils", "tenues", "vetements"]);
+console.log("✓ temps réel : vêtements, tenues, journal, profil, essayages et demandes d'IA publiés");
+
+// --- Relais Claude : l'iPhone dépose, le Mac prend (une seule fois), répond
+const [dem] = await en(A, `insert into ia_demandes (tache, entree) values ('tenues', '{"dressing":"x"}') returning id, statut, modele`);
+assert.equal(dem.statut, "en_attente");
+assert.equal(dem.modele, "sonnet");
+const prise = await en(A, `update ia_demandes set statut = 'en_cours' where id = '${dem.id}' and statut = 'en_attente' returning id`);
+const deuxieme = await en(A, `update ia_demandes set statut = 'en_cours' where id = '${dem.id}' and statut = 'en_attente' returning id`);
+assert.equal(prise.length, 1);
+assert.equal(deuxieme.length, 0, "un seul Mac prend la demande");
+assert.equal((await en(B, "select count(*)::int n from ia_demandes"))[0].n, 0);
+await assert.rejects(en(A, `insert into ia_demandes (tache) values ('pirater')`), /check/);
+await assert.rejects(en(A, `insert into ia_demandes (tache, modele) values ('tenues', 'gpt')`), /check/);
+await en(A, `insert into ia_relais (appareil, claude_ok) values ('Mac · ab12', true) on conflict (user_id, appareil) do update set vu_le = now()`);
+assert.equal((await en(B, "select count(*)::int n from ia_relais"))[0].n, 0);
+console.log("✓ relais Claude : demandes privées, prises une seule fois, Mac signalé");
 
 // --- Essayages
 await en(A, `insert into essayages (pieces, image, moteur) values (array['${jean.id}']::uuid[], 'essai-1.jpg', 'flux-2-pro')`);

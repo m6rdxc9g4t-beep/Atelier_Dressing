@@ -6,7 +6,7 @@
 // y = 960 (sous les pieds). Fonctions pures, testées dans mannequin.test.ts.
 
 import { CATEGORIES_AVEC_LONGUEUR, longueurParDefaut } from "./categories";
-import type { Avatar, Calage, Categorie, Longueur, Vetement } from "./types";
+import type { Ajustement, Avatar, Calage, Categorie, Longueur, Vetement } from "./types";
 
 export const LARGEUR = 400;
 export const HAUTEUR = 1000;
@@ -325,18 +325,26 @@ export function placer(z: Rect, ratio: number, categorie: Categorie, calage: Cal
 }
 
 /**
- * Repères mesurés sur la photo détourée : largeur aux épaules (hauts, vestes,
- * robes) et à la ceinture (bas), en part de la largeur de la photo.
+ * Repères mesurés sur la photo détourée (fractions de la boîte du vêtement) :
+ * ligne et largeur des épaules, largeur du buste sous les manches, largeur de la ceinture.
  */
 export interface Reperes {
+  /** Hauteur de la ligne d'épaules (0 = haut du col, 1 = bas du vêtement). */
+  ligneEpaules: number | null;
+  /** Largeur à la ligne d'épaules. */
   epaules: number | null;
+  /** Largeur du buste seul (quand les manches sont détachées du corps), sinon null. */
+  tronc: number | null;
   ceinture: number | null;
   /** La photo n'est pas détourée (fond conservé) : pas de mesure possible. */
   opaque: boolean;
+  /** Boîte du vêtement dans la photo (fractions), pour convertir les repères. */
+  boite: { x: number; y: number; w: number; h: number } | null;
 }
 
 /** Mesure les repères à partir du canal alpha (0-255) d'une photo w × h. */
 export function reperesDepuisAlpha(alpha: ArrayLike<number>, w: number, h: number): Reperes {
+  const plein = (x: number, y: number) => alpha[y * w + x] > 128;
   const ext: [number, number][] = [];
   let top = -1;
   let bot = -1;
@@ -347,7 +355,7 @@ export function reperesDepuisAlpha(alpha: ArrayLike<number>, w: number, h: numbe
     let a = -1;
     let b = -1;
     for (let x = 0; x < w; x++) {
-      if (alpha[y * w + x] > 128) {
+      if (plein(x, y)) {
         pleins++;
         if (a < 0) a = x;
         b = x;
@@ -362,58 +370,130 @@ export function reperesDepuisAlpha(alpha: ArrayLike<number>, w: number, h: numbe
     }
   }
   const opaque = pleins > w * h * 0.97;
-  if (top < 0 || opaque) return { epaules: null, ceinture: null, opaque };
+  const vide: Reperes = { ligneEpaules: null, epaules: null, tronc: null, ceinture: null, opaque, boite: null };
+  if (top < 0 || opaque) return vide;
   const H = bot - top + 1;
   const W = x1 - x0 + 1;
-  const largeur = (p0: number, p1: number, f: (l: number[]) => number) => {
-    const l: number[] = [];
-    for (let y = Math.round(top + p0 * H); y <= Math.round(top + p1 * H); y++) {
-      const [a, b] = ext[Math.min(bot, y)];
-      if (a >= 0) l.push((b - a + 1) / W);
-    }
-    return l.length ? Math.round(f(l) * 1000) / 1000 : null;
+  const ligne = (p: number) => Math.min(bot, Math.round(top + p * H));
+  const largeur = (p: number) => {
+    const [a, b] = ext[ligne(p)];
+    return a >= 0 ? (b - a + 1) / W : 0;
   };
+  const r3 = (n: number) => Math.round(n * 1000) / 1000;
   const mediane = (l: number[]) => [...l].sort((a, b) => a - b)[Math.floor(l.length / 2)];
+
+  // Ligne d'épaules : là où le vêtement atteint 85 % de sa plus grande largeur dans le haut (40 %)
+  let maxHaut = 0;
+  for (let p = 0; p <= 0.4; p += 0.01) maxHaut = Math.max(maxHaut, largeur(p));
+  let ligneEpaules = 0.15;
+  for (let p = 0.02; p <= 0.4; p += 0.01) {
+    if (largeur(p) >= 0.85 * maxHaut) {
+      ligneEpaules = p;
+      break;
+    }
+  }
+
+  // Buste seul : morceau qui contient le milieu, entre 50 % et 70 % de la hauteur
+  const cx = Math.round(x0 + W / 2);
+  const morceauCentre = (y: number) => {
+    let a = cx;
+    let b = cx;
+    if (!plein(cx, y)) return 0;
+    while (a > 0 && plein(a - 1, y)) a--;
+    while (b < w - 1 && plein(b + 1, y)) b++;
+    return (b - a + 1) / W;
+  };
+  const centres: number[] = [];
+  for (let p = 0.5; p <= 0.7; p += 0.02) centres.push(morceauCentre(ligne(p)));
+  const tronc = mediane(centres);
+
+  const ceinture: number[] = [];
+  for (let p = 0; p <= 0.03; p += 0.005) ceinture.push(largeur(p));
+
   return {
-    epaules: largeur(0.06, 0.14, (l) => Math.max(...l)),
-    ceinture: largeur(0, 0.03, mediane),
+    ligneEpaules: r3(ligneEpaules),
+    epaules: r3(largeur(ligneEpaules)),
+    // Manches détachées du corps : le buste est nettement plus étroit que la photo
+    tronc: tronc > 0.2 && tronc < 0.75 ? r3(tronc) : null,
+    ceinture: r3(mediane(ceinture)),
     opaque,
+    boite: { x: x0 / w, y: top / h, w: W / w, h: H / h },
   };
 }
 
 /** Une photo à plat montre la moitié du tour : vue de face, un bas paraît ~35 % plus long que large. */
 const ALLONGEMENT_BAS = 1.35;
 
+/** Pose une pièce pour qu'un segment de la photo (fractions) tombe sur un segment du corps. */
+function caler(ratio: number, gx1: number, gx2: number, gy: number, cible: { gauche: number; droite: number; y: number }): Rect {
+  const w = (cible.droite - cible.gauche) / Math.max(0.05, gx2 - gx1);
+  const h = w / ratio;
+  return { x: cible.gauche - gx1 * w, y: cible.y - gy * h, w, h };
+}
+
 /**
- * Rectangle d'une pièce à l'échelle réelle : les épaules du vêtement sur tes
- * épaules, la ceinture sur ta taille, puis la longueur que donne la photo.
- * Sans repères (photo non détourée, accessoires), la pièce remplit sa zone.
+ * Rectangle d'une pièce à l'échelle réelle.
+ * 1. Repères donnés par l'IA (Claude) à la reconnaissance : points d'épaules, de ceinture, ourlet.
+ * 2. Sinon, repères mesurés sur la photo détourée.
+ * 3. Sinon (photo non détourée, accessoires), null : la pièce remplit sa zone.
  */
-export function rectReel(a: Avatar, v: Pick<Vetement, "categorie" | "longueur" | "sous_type">, ratio: number, r: Reperes | null): Rect | null {
-  if (!r || r.opaque) return null;
+export function rectReel(
+  a: Avatar,
+  v: Pick<Vetement, "categorie" | "longueur" | "sous_type"> & { ajustement?: Ajustement | null },
+  ratio: number,
+  r: Reperes | null,
+): Rect | null {
   const g = geometrie(a);
   const { y, l } = g;
-  if ((v.categorie === "haut" || v.categorie === "veste" || v.categorie === "robe") && r.epaules && r.epaules > 0.15) {
-    const aisance = v.categorie === "veste" ? 1.12 : 1.04;
-    const w = (2 * l.epaules * aisance) / r.epaules;
-    const h = w / ratio;
-    // La ligne d'épaules est vers 10 % du haut de la photo (col au-dessus)
-    return { x: CX - w / 2, y: y.epaules + 6 - 0.1 * h, w, h };
+  const longueur = CATEGORIES_AVEC_LONGUEUR.includes(v.categorie) ? (v.longueur ?? longueurParDefaut(v.categorie, v.sous_type)) : null;
+  const haut = v.categorie === "haut" || v.categorie === "veste" || v.categorie === "robe";
+  const aisance = v.categorie === "veste" ? 1.08 : 1.03;
+  // Épaules du corps, bras compris : là où se trouvent les coutures d'épaule d'un vêtement porté
+  const epaulesCorps = { gauche: CX - (l.epaules + l.bras * 0.8) * aisance, droite: CX + (l.epaules + l.bras * 0.8) * aisance, y: y.epaules - 2 };
+  const tailleCorps = { gauche: CX - l.taille * 1.1, droite: CX + l.taille * 1.1, y: y.taille - 4 };
+
+  // Allonge un bas pour qu'il tombe à sa longueur (vue de face), dans des limites raisonnables
+  const allonger = (rect: Rect, haut01: number, bas01: number): Rect => {
+    if (!longueur) return rect;
+    const voulue = basSelonLongueur(g, longueur) - (rect.y + haut01 * rect.h);
+    const h = borne(voulue / Math.max(0.2, bas01 - haut01), rect.h, rect.h * 1.6);
+    return { ...rect, y: rect.y - haut01 * (h - rect.h), h };
+  };
+
+  const aj = v.ajustement;
+  if (haut && aj?.epaules) {
+    return caler(ratio, aj.epaules.gauche, aj.epaules.droite, aj.epaules.y, epaulesCorps);
+  }
+  if (v.categorie === "bas" && aj?.ceinture) {
+    const rect = caler(ratio, aj.ceinture.gauche, aj.ceinture.droite, aj.ceinture.y, tailleCorps);
+    return allonger(rect, aj.ceinture.y, aj.ourlet ?? 1);
+  }
+
+  if (!r || r.opaque || !r.boite) return null;
+  const b = r.boite;
+  // Repères mesurés (fractions de la boîte) → fractions de la photo entière
+  const enX = (f: number) => b.x + f * b.w;
+  const enY = (f: number) => b.y + f * b.h;
+  if (haut && r.ligneEpaules != null && r.epaules) {
+    const gy = enY(r.ligneEpaules);
+    if (r.tronc) {
+      // Manches détachées : on cale le buste sur la poitrine, la ligne d'épaules sur les épaules
+      const largeurBuste = 2 * l.poitrine * (v.categorie === "veste" ? 1.18 : 1.1);
+      const w = largeurBuste / (r.tronc * b.w);
+      const h = w / ratio;
+      return { x: CX - (enX(0.5)) * w, y: epaulesCorps.y - gy * h, w, h };
+    }
+    return caler(ratio, enX(0.5 - r.epaules / 2), enX(0.5 + r.epaules / 2), gy, epaulesCorps);
   }
   if (v.categorie === "bas" && r.ceinture && r.ceinture > 0.2) {
-    const w = (2 * l.taille * 1.15) / r.ceinture;
-    const naturelle = w / ratio;
-    const longueur = CATEGORIES_AVEC_LONGUEUR.includes(v.categorie) ? (v.longueur ?? longueurParDefaut(v.categorie, v.sous_type)) : null;
-    const haut = y.taille - 4;
-    const voulue = longueur ? basSelonLongueur(g, longueur) - haut : naturelle * ALLONGEMENT_BAS;
-    const h = borne(voulue, naturelle, naturelle * 1.6);
-    return { x: CX - w / 2, y: haut, w, h };
+    const rect = caler(ratio, enX(0.5 - r.ceinture / 2), enX(0.5 + r.ceinture / 2), enY(0), tailleCorps);
+    return longueur ? allonger(rect, enY(0), enY(1)) : { ...rect, h: rect.h * ALLONGEMENT_BAS };
   }
   if (v.categorie === "chaussures") {
     // La paire couvre les deux pieds, posée au sol
-    const w = (g.ecartJambes / 2 + 7 + l.pied * 2 + 8) * 2;
+    const w = ((g.ecartJambes / 2 + 7 + l.pied * 2 + 8) * 2) / b.w;
     const h = w / ratio;
-    return { x: CX - w / 2, y: BAS + 4 - h, w, h };
+    return { x: CX - enX(0.5) * w, y: BAS + 4 - enY(1) * h, w, h };
   }
   return null;
 }
@@ -421,7 +501,7 @@ export function rectReel(a: Avatar, v: Pick<Vetement, "categorie" | "longueur" |
 /** Rectangle final d'une pièce sur le mannequin (échelle réelle si possible, puis calage). */
 export function rectPiece(
   a: Avatar,
-  v: Pick<Vetement, "categorie" | "longueur" | "sous_type" | "calage">,
+  v: Pick<Vetement, "categorie" | "longueur" | "sous_type" | "calage"> & { ajustement?: Ajustement | null },
   ratio: number,
   reperes: Reperes | null = null,
 ): Rect {

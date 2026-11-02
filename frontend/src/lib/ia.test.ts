@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normaliserAnalyse, normaliserSilhouette, normaliserTenues, resumeDressing } from "./ia";
+import { normaliserAjustement, normaliserAnalyse, normaliserSilhouette, normaliserTenues, resumeDressing } from "./ia";
 import { nouveauVetement } from "./types";
 
 describe("normalisation des réponses de l'IA", () => {
@@ -54,5 +54,23 @@ describe("normalisation des réponses de l'IA", () => {
     expect(r.split("\n")).toHaveLength(1);
     expect(r).toContain("x1 | bas | Jean brut | Denim");
     expect(r).toContain("porté il y a 10 j");
+  });
+});
+
+describe("repères d'ajustement donnés par l'IA", () => {
+  const reperes = { epaules_y: 0.2, epaule_gauche_x: 0.22, epaule_droite_x: 0.78, ceinture_y: -1, ceinture_gauche_x: -1, ceinture_droite_x: -1, ourlet_y: 0.82 };
+  it("garde des épaules plausibles pour une veste", () => {
+    expect(normaliserAjustement(reperes, "veste")).toEqual({ epaules: { y: 0.2, gauche: 0.22, droite: 0.78 }, ourlet: 0.82 });
+  });
+  it("ignore des repères absurdes ou hors sujet", () => {
+    expect(normaliserAjustement({ ...reperes, epaule_gauche_x: 0.5, epaule_droite_x: 0.52 }, "veste")).toBeNull();
+    expect(normaliserAjustement(reperes, "chaussures")).toBeNull();
+    expect(normaliserAjustement(null, "bas")).toBeNull();
+  });
+  it("accepte une ceinture pour un bas", () => {
+    expect(normaliserAjustement({ ceinture_y: 0.02, ceinture_gauche_x: 0.3, ceinture_droite_x: 0.7, ourlet_y: 0.98 }, "bas")).toEqual({
+      ceinture: { y: 0.02, gauche: 0.3, droite: 0.7 },
+      ourlet: 0.98,
+    });
   });
 });

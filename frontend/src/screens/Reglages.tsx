@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Cloud, Cpu, Download, LoaderCircle, Sparkles, Upload } from "lucide-react";
+import { Cloud, Cpu, Download, LoaderCircle, ShieldCheck, Sparkles, Upload } from "lucide-react";
+import { MODELES_CLAUDE, statutClaude } from "../lib/claude";
+import { etatRelais } from "../lib/relais";
 import { Feuille } from "../components/Feuille";
 import { useToast } from "../components/Toast";
 import { useDonnees, useReglages } from "../lib/donnees";
@@ -22,13 +24,39 @@ export function Reglages({
   const [r, maj] = useReglages();
   const toast = useToast();
   const donnees = useDonnees();
+  const iPhoneNonInstalle = estIOS && !estInstallee && !estTauri;
+  const local = donnees.depot.mode === "local";
   const [ollama, setOllama] = useState<boolean | null>(null);
   const [travail, setTravail] = useState<string | null>(null);
   const fichier = useRef<HTMLInputElement>(null);
 
+  const [claude, setClaude] = useState<{ ok: boolean; texte: string } | null>(null);
+
+  // Claude est-il prêt ? CLI du Mac sur l'app Mac, Mac relais ailleurs.
+  useEffect(() => {
+    if (!ouverte) return;
+    let annule = false;
+    setClaude(null);
+    (async () => {
+      if (estTauri) {
+        const s = await statutClaude(true);
+        return { ok: s.disponible, texte: s.disponible ? `Claude Code prêt${s.version ? ` (${s.version})` : ""}` : s.message };
+      }
+      if (!supabase || local) return { ok: false, texte: "Claude depuis l'iPhone passe par ton Mac : connecte-toi à ton compte." };
+      const e = await etatRelais(supabase, true);
+      if (!e.present) return { ok: false, texte: "Ouvre Atelier Dressing sur ton Mac (même compte) pour utiliser ton forfait Claude ici." };
+      return e.claude
+        ? { ok: true, texte: `Claude prêt via ${e.appareil ?? "ton Mac"}` }
+        : { ok: false, texte: `Claude Code n'est pas connecté sur ${e.appareil ?? "ton Mac"} : « claude auth login » dans son Terminal.` };
+    })().then((c) => !annule && setClaude(c));
+    return () => {
+      annule = true;
+    };
+  }, [ouverte]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Ollama répond-il ? Vérifié à l'ouverture et quand l'adresse change.
   useEffect(() => {
-    if (!ouverte || r.modeIA === "cloud") return;
+    if (!ouverte || r.modeIA === "claude") return;
     let annule = false;
     setOllama(null);
     ollamaDisponible(r.ollamaUrl).then((ok) => !annule && setOllama(ok));
@@ -37,8 +65,6 @@ export function Reglages({
     };
   }, [ouverte, r.modeIA, r.ollamaUrl]);
 
-  const iPhoneNonInstalle = estIOS && !estInstallee && !estTauri;
-  const local = donnees.depot.mode === "local";
 
   async function sauvegarder() {
     setTravail("Préparation de la sauvegarde…");
@@ -75,12 +101,12 @@ export function Reglages({
       <div className="reglages">
         <section>
           <h3>Intelligence artificielle</h3>
-          <div className="segments" role="radiogroup" aria-label="Moteur IA">
+          <div className="segments" role="radiogroup" aria-label="Moteur">
             {(
               [
                 ["auto", "Auto", Sparkles],
-                ["local", "Local", Cpu],
-                ["cloud", "Cloud", Cloud],
+                ["ollama", "Ollama", Cpu],
+                ["claude", "Claude", Cloud],
               ] as const
             ).map(([v, l, Icone]) => (
               <button
@@ -96,14 +122,42 @@ export function Reglages({
             ))}
           </div>
           <p className="note">
-            {r.modeIA === "local"
+            {r.modeIA === "ollama"
               ? "Ollama sur ce Mac : hors ligne, gratuit, tes photos ne quittent pas l'ordinateur."
-              : r.modeIA === "cloud"
-                ? "Claude, via la fonction sécurisée de l'app : plus précis, fonctionne partout, iPhone compris (compte synchronisé requis)."
-                : "Ollama s'il répond en moins de 3 secondes, sinon Claude."}{" "}
-            L'IA reconnaît les pièces scannées, compose des tenues et estime ta silhouette. Le détourage, lui, se fait toujours sur l'appareil.
+              : r.modeIA === "claude"
+                ? "Claude avec ton abonnement, par la CLI Claude Code de ton Mac (pas de clé API). Sur l'iPhone, la demande passe par ton Mac ouvert."
+                : "Claude s'il est disponible, sinon Ollama."}{" "}
+            Le détourage se fait toujours sur l'appareil.
           </p>
-          {r.modeIA !== "cloud" && (
+          <p className={"etat-ia" + (claude?.ok ? " etat-ia--ok" : claude ? " etat-ia--ko" : "")} role="status">
+            {claude == null ? "Recherche de Claude…" : claude.texte}
+          </p>
+          {r.modeIA !== "ollama" && (
+            <>
+              <div className="champ-groupe">
+                <span>Modèle Claude</span>
+                <div className="segments" role="radiogroup" aria-label="Modèle Claude">
+                  {MODELES_CLAUDE.map((m) => (
+                    <button
+                      key={m.v}
+                      role="radio"
+                      aria-checked={r.modeleClaude === m.v}
+                      aria-selected={r.modeleClaude === m.v}
+                      className="segment"
+                      onClick={() => maj({ modeleClaude: m.v })}
+                    >
+                      {m.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="note bouclier">
+                <ShieldCheck size={14} aria-hidden /> Quand Claude répond, il reçoit : la photo de la pièce scannée ; pour les tenues, la liste de tes
+                pièces (nom, couleurs, saisons, dernier port) et la météo ; pour ton mannequin, ta photo en pied. Rien d'autre.
+              </p>
+            </>
+          )}
+          {r.modeIA !== "claude" && (
             <>
               <p className={"etat-ia" + (ollama ? " etat-ia--ok" : ollama === false ? " etat-ia--ko" : "")} role="status">
                 {ollama == null ? "Recherche d'Ollama…" : ollama ? "Ollama répond" : "Ollama ne répond pas"}
@@ -132,9 +186,6 @@ export function Reglages({
                 </div>
               </div>
             </>
-          )}
-          {r.modeIA !== "local" && !cloudConfigure && (
-            <p className="note">Le mode Cloud n'est pas encore branché : il faut le projet Supabase de l'app (voir le README).</p>
           )}
         </section>
 

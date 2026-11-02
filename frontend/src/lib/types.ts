@@ -36,6 +36,23 @@ export interface Calage {
 
 export const CALAGE_NEUTRE: Calage = { echelle: 1, dx: 0, dy: 0 };
 
+/** Un segment horizontal sur la photo de la pièce (fractions de la photo, 0 à 1). */
+export interface Segment01 {
+  y: number;
+  gauche: number;
+  droite: number;
+}
+
+/**
+ * Repères posés par l'IA sur la photo de la pièce, pour l'ajuster sur le corps :
+ * coutures d'épaules (hauts, vestes, robes), ceinture et ourlet (bas).
+ */
+export interface Ajustement {
+  epaules?: Segment01;
+  ceinture?: Segment01;
+  ourlet?: number;
+}
+
 export interface Vetement {
   id: string;
   nom: string;
@@ -59,6 +76,7 @@ export interface Vetement {
   image: string | null; // clé de la photo détourée (PNG transparent)
   image_originale: string | null; // clé de la photo d'origine
   calage: Calage;
+  ajustement: Ajustement | null;
   cree_le: string;
   maj_le: string;
 }
@@ -177,6 +195,7 @@ export function nouveauVetement(partiel: Partial<Vetement> = {}): Vetement {
     image: null,
     image_originale: null,
     calage: { ...CALAGE_NEUTRE },
+    ajustement: null,
     cree_le: t,
     maj_le: t,
     ...partiel,

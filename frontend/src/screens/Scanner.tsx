@@ -50,6 +50,8 @@ function fusionner(v: Vetement, a: AnalyseVetement, modifie: boolean): Vetement 
     ...prend("chaleur", false),
     ...prend("marque", !v.marque),
     longueur: modifie && v.longueur ? v.longueur : (a.longueur ?? longueurParDefaut(a.categorie, a.sous_type)),
+    // Les repères d'ajustement suivent la photo : on garde toujours ceux de l'IA
+    ajustement: a.ajustement,
   };
 }
 
@@ -389,7 +391,7 @@ function EtatAnalyse({
                 relancer(ia.proposer!);
               }}
             >
-              Essayer en mode {ia.proposer === "cloud" ? "Cloud (Claude)" : "Local (Ollama)"}
+              Essayer avec {ia.proposer === "claude" ? "Claude" : "Ollama"}
             </button>
           )}
           <button className="bouton bouton--discret" onClick={() => relancer()}>

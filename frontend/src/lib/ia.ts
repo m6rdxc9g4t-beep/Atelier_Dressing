@@ -1,27 +1,31 @@
-// Moteur IA hybride d'atelier_Dressing (même principe qu'atelier_Cuisine) :
+// Moteur IA hybride d'atelier_Dressing, comme le reste de la suite Atelier
+// (Atelier_Tab, docs/SUITE.md §5.2) : « Moteur : Auto · Ollama · Claude ».
 //
-//  * local : Ollama sur le Mac (http://localhost:11434), hors ligne, gratuit ;
-//  * cloud : Claude, via la fonction Supabase « ia-dressing » (la clé API reste
-//    côté serveur) ;
-//  * auto  : Ollama s'il répond en moins de 3 s, sinon Claude.
+//  * Ollama : sur le Mac (http://localhost:11434), hors ligne, gratuit ;
+//  * Claude : la CLI Claude Code du Mac, avec ton abonnement Claude (pas de clé API).
+//    Sur l'app Mac, elle est lancée directement (lib/claude.ts) ; sur l'iPhone ou dans un
+//    navigateur, la demande passe par ton Mac, ouvert et connecté au même compte (lib/relais.ts) ;
+//  * Auto : Claude s'il est disponible, sinon Ollama.
 //
 // Trois tâches : reconnaître un vêtement en photo, composer des tenues avec le
 // dressing, et estimer ta silhouette sur une photo en pied pour le mannequin.
-// Les consignes et les schémas JSON sont les mêmes que dans
-// backend/supabase/functions/ia-dressing/index.ts : modifier les deux côtés.
 
 import { CATEGORIES, LONGUEURS, OCCASIONS, SAISONS } from "./categories";
+import { demanderClaude, ErreurClaude, statutClaude, type ModeleClaude } from "./claude";
 import { hexValide, nomCouleur, normaliserHex } from "./couleurs";
+import { estTauri } from "./plateforme";
+import { demanderViaRelais, etatRelais, type DemandeRelais } from "./relais";
 import { supabase } from "./supabase";
-import type { Avatar, Categorie, Couleur, Longueur, Occasion, Saison, Vetement } from "./types";
+import type { Ajustement, Avatar, Categorie, Couleur, Longueur, Occasion, Saison, Vetement } from "./types";
 
-export type ModeIA = "local" | "cloud" | "auto";
+export type ModeIA = "auto" | "ollama" | "claude";
 
 export interface ReglagesIA {
   modeIA: ModeIA;
   ollamaUrl: string;
   ollamaModele: string;
   ollamaModeleVision: string;
+  modeleClaude: ModeleClaude;
 }
 
 export const REGLAGES_IA_DEFAUT: ReglagesIA = {
@@ -29,9 +33,17 @@ export const REGLAGES_IA_DEFAUT: ReglagesIA = {
   ollamaUrl: "http://localhost:11434",
   ollamaModele: "llama3.2",
   ollamaModeleVision: "llama3.2-vision",
+  modeleClaude: "sonnet",
 };
 
-export type Moteur = "ollama" | "claude";
+/** Anciens réglages (« local » / « cloud ») → moteurs de la suite. */
+export function migrerModeIA(m: unknown): ModeIA {
+  if (m === "local") return "ollama";
+  if (m === "cloud") return "claude";
+  return m === "ollama" || m === "claude" ? m : "auto";
+}
+
+export type Moteur = "ollama" | "claude" | "claude-relais";
 
 /** Erreur à montrer telle quelle, avec la bascule proposée. */
 export class IAIndisponible extends Error {
@@ -66,7 +78,7 @@ export async function ollamaDisponible(url: string, delai = 3000): Promise<boole
 export const SCHEMA_VETEMENT = {
   type: "object",
   additionalProperties: false,
-  required: ["nom", "categorie", "sous_type", "couleurs", "matiere", "motif", "saisons", "occasions", "style", "longueur", "chaleur", "marque"],
+  required: ["nom", "categorie", "sous_type", "couleurs", "matiere", "motif", "saisons", "occasions", "style", "longueur", "chaleur", "marque", "reperes"],
   properties: {
     nom: { type: "string" },
     categorie: { type: "string", enum: CATEGORIES },
@@ -88,6 +100,20 @@ export const SCHEMA_VETEMENT = {
     longueur: { type: "string", enum: [...LONGUEURS, ""] },
     chaleur: { type: "integer" },
     marque: { type: "string" },
+    reperes: {
+      type: "object",
+      additionalProperties: false,
+      required: ["epaules_y", "epaule_gauche_x", "epaule_droite_x", "ceinture_y", "ceinture_gauche_x", "ceinture_droite_x", "ourlet_y"],
+      properties: {
+        epaules_y: { type: "number" },
+        epaule_gauche_x: { type: "number" },
+        epaule_droite_x: { type: "number" },
+        ceinture_y: { type: "number" },
+        ceinture_gauche_x: { type: "number" },
+        ceinture_droite_x: { type: "number" },
+        ourlet_y: { type: "number" },
+      },
+    },
   },
 };
 
@@ -140,7 +166,12 @@ export const CONSIGNES_VETEMENT = `Tu es l'assistant de l'application de garde-r
 - style : en deux ou trois mots (« casual chic », « sportswear », « classique »).
 - longueur (hauts, bas, robes, vestes seulement, sinon chaîne vide) : courte, hanches, cuisses, genoux, mollets, chevilles.
 - chaleur : 1 très léger (débardeur en lin), 2 léger (t-shirt), 3 mi-saison (chemise, sweat fin), 4 chaud (pull en laine), 5 très chaud (doudoune).
-- marque : seulement si elle est lisible sur la photo, sinon chaîne vide.`;
+- marque : seulement si elle est lisible sur la photo, sinon chaîne vide.
+- reperes : où se trouvent, SUR CETTE PHOTO, les points qui servent à l'ajuster sur un corps. Coordonnées en fractions de la photo entière : x de 0 (bord gauche) à 1 (bord droit), y de 0 (haut) à 1 (bas). Utilise -1 pour ce qui n'existe pas.
+  • hauts, vestes, robes : epaules_y = hauteur des coutures d'épaule (là où la manche rejoint le corps du vêtement) ; epaule_gauche_x et epaule_droite_x = position de ces deux coutures. Ceinture à -1.
+  • bas : ceinture_y = haut de la ceinture ; ceinture_gauche_x et ceinture_droite_x = ses deux bords. Épaules à -1.
+  • ourlet_y = bas du vêtement (le bas du corps du vêtement, pas des manches).
+  • accessoires et chaussures : tout à -1.`;
 
 export const CONSIGNES_TENUES = `Tu es le styliste personnel de l'application atelier_Dressing. On te donne le dressing (une pièce par ligne : identifiant, catégorie, nom, couleurs, chaleur de 1 à 5, saisons, occasions, jours depuis le dernier port) et le contexte (météo, occasion, envie). Propose jusqu'à 3 tenues complètes et différentes, en JSON, en français.
 Règles :
@@ -172,6 +203,8 @@ export interface AnalyseVetement {
   longueur: Longueur | null;
   chaleur: number;
   marque: string;
+  /** Repères pour ajuster la pièce sur le corps (null si absents ou peu plausibles). */
+  ajustement: Ajustement | null;
 }
 
 const texte = (v: unknown, max = 80): string => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -209,7 +242,33 @@ export function normaliserAnalyse(brut: unknown): AnalyseVetement {
     longueur: dans(o.longueur, LONGUEURS),
     chaleur: Number.isFinite(chaleur) ? Math.min(5, Math.max(1, chaleur)) : 2,
     marque: texte(o.marque, 40),
+    ajustement: normaliserAjustement(o.reperes, categorie),
   };
+}
+
+/** Repères de l'IA → ajustement, seulement s'ils sont plausibles (sinon la photo est mesurée). */
+export function normaliserAjustement(brut: unknown, categorie: Categorie): Ajustement | null {
+  const o = (brut && typeof brut === "object" ? brut : {}) as Record<string, unknown>;
+  const n = (k: string) => {
+    const v = Number(o[k]);
+    return Number.isFinite(v) && v >= 0 && v <= 1 ? v : null;
+  };
+  const segment = (y: string, g: string, d: string, yMax: number) => {
+    const [vy, vg, vd] = [n(y), n(g), n(d)];
+    if (vy == null || vg == null || vd == null) return undefined;
+    const [gauche, droite] = vg < vd ? [vg, vd] : [vd, vg];
+    // Largeur raisonnable, segment à peu près centré, à la bonne hauteur
+    if (droite - gauche < 0.15 || Math.abs((gauche + droite) / 2 - 0.5) > 0.2 || vy > yMax) return undefined;
+    return { y: vy, gauche, droite };
+  };
+  const aj: Ajustement = {};
+  if (categorie === "haut" || categorie === "veste" || categorie === "robe") aj.epaules = segment("epaules_y", "epaule_gauche_x", "epaule_droite_x", 0.45);
+  if (categorie === "bas") aj.ceinture = segment("ceinture_y", "ceinture_gauche_x", "ceinture_droite_x", 0.25);
+  const ourlet = n("ourlet_y");
+  if (ourlet != null && ourlet > 0.4) aj.ourlet = ourlet;
+  if (!aj.epaules) delete aj.epaules;
+  if (!aj.ceinture) delete aj.ceinture;
+  return aj.epaules || aj.ceinture ? aj : null;
 }
 
 export interface TenueIA {
@@ -275,17 +334,8 @@ export function resumeDressing(vetements: Vetement[], derniers: Map<string, stri
 
 // ---------------------------------------------------------------- Moteurs
 
-type Tache = "vetement" | "tenues" | "silhouette";
-
-interface Demande {
-  tache: Tache;
-  image?: Image64;
-  /** Pour les tenues : dressing résumé et contexte. */
-  dressing?: string;
-  contexte?: string;
-  /** Indice pour le vêtement : couleurs mesurées sur la photo détourée. */
-  indice?: string;
-}
+type Tache = DemandeRelais["tache"];
+type Demande = DemandeRelais;
 
 const SCHEMAS: Record<Tache, object> = { vetement: SCHEMA_VETEMENT, tenues: SCHEMA_TENUES, silhouette: SCHEMA_SILHOUETTE };
 const CONSIGNES: Record<Tache, string> = { vetement: CONSIGNES_VETEMENT, tenues: CONSIGNES_TENUES, silhouette: CONSIGNES_SILHOUETTE };
@@ -317,12 +367,12 @@ async function viaOllama(d: Demande, r: ReglagesIA): Promise<unknown> {
       }),
     });
   } catch {
-    throw new IAIndisponible("Ollama ne répond pas. Lance l'app Ollama sur ce Mac, ou passe en mode Cloud.", "cloud");
+    throw new IAIndisponible("Ollama ne répond pas. Lance l'app Ollama sur ce Mac, ou choisis Claude.", "claude");
   }
   if (!reponse.ok) {
     const corps = await reponse.text();
     if (/not found/i.test(corps)) {
-      throw new IAIndisponible(`Le modèle « ${modele} » n'est pas installé. Dans le Terminal : ollama pull ${modele}`, "cloud");
+      throw new IAIndisponible(`Le modèle « ${modele} » n'est pas installé. Dans le Terminal : ollama pull ${modele}`, "claude");
     }
     throw new Error(`Ollama a répondu ${reponse.status}`);
   }
@@ -330,46 +380,63 @@ async function viaOllama(d: Demande, r: ReglagesIA): Promise<unknown> {
   return JSON.parse(json.message?.content ?? "{}");
 }
 
-async function viaClaude(d: Demande): Promise<unknown> {
-  if (!supabase) {
-    throw new IAIndisponible("Le mode Cloud demande un compte synchronisé (Supabase). Utilise Ollama en local.", "local");
+/** Claude par la CLI du Mac (sert aussi au relais, quand la demande vient de l'iPhone). */
+export async function viaClaudeLocal(d: Demande, modele: ModeleClaude): Promise<unknown> {
+  try {
+    return await demanderClaude(CONSIGNES[d.tache], SCHEMAS[d.tache], messageUtilisateur(d), modele, d.image);
+  } catch (e) {
+    if (e instanceof ErreurClaude) throw new IAIndisponible(e.message, "ollama");
+    throw e;
   }
+}
+
+async function viaRelais(d: Demande, modele: ModeleClaude): Promise<unknown> {
+  if (!supabase) throw new IAIndisponible("Claude depuis l'iPhone passe par ton Mac : connecte-toi à ton compte.", null);
   const { data: s } = await supabase.auth.getSession();
-  if (!s.session) throw new IAIndisponible("Connecte-toi à ton compte pour utiliser Claude.", "local");
-  const { data, error } = await supabase.functions.invoke("ia-dressing", { body: d });
-  if (error) {
-    let message = error.message;
-    const contexte = (error as { context?: Response }).context;
-    if (contexte && typeof contexte.json === "function") {
-      try {
-        message = ((await contexte.json()) as { erreur?: string }).erreur ?? message;
-      } catch {
-        /* réponse non JSON */
-      }
-    }
-    if (/failed to send|fetch/i.test(message)) {
-      throw new IAIndisponible("Pas de connexion : le mode Cloud a besoin d'Internet. Passe en mode Local avec Ollama.", "local");
-    }
-    throw new Error(message);
+  if (!s.session) throw new IAIndisponible("Claude depuis l'iPhone passe par ton Mac : connecte-toi à ton compte.", null);
+  const e = await etatRelais(supabase);
+  if (!e.present) {
+    throw new IAIndisponible("Pour utiliser ton forfait Claude ici, ouvre Atelier Dressing sur ton Mac (connecté au même compte), puis réessaie.", null);
   }
-  return (data as { resultat: unknown }).resultat;
+  if (!e.claude) throw new IAIndisponible(`Claude Code n'est pas prêt sur ${e.appareil ?? "ton Mac"} : lance « claude auth login » dans son Terminal.`, null);
+  try {
+    return (await demanderViaRelais(supabase, d, modele)).resultat;
+  } catch (err) {
+    throw new IAIndisponible(err instanceof Error ? err.message : String(err), null);
+  }
+}
+
+/** Claude est-il utilisable d'ici ? (CLI du Mac, ou Mac relais présent) */
+export async function claudeDisponible(): Promise<boolean> {
+  if (estTauri) return (await statutClaude()).disponible;
+  if (!supabase) return false;
+  const { data: s } = await supabase.auth.getSession();
+  if (!s.session) return false;
+  return (await etatRelais(supabase).catch(() => null))?.claude ?? false;
 }
 
 async function choisirMoteur(r: ReglagesIA): Promise<Moteur> {
-  if (r.modeIA === "local") return "ollama";
-  if (r.modeIA === "cloud") return "claude";
-  return (await ollamaDisponible(r.ollamaUrl)) ? "ollama" : "claude";
+  const claude: Moteur = estTauri ? "claude" : "claude-relais";
+  if (r.modeIA === "ollama") return "ollama";
+  if (r.modeIA === "claude") return claude;
+  return (await claudeDisponible()) ? claude : "ollama";
 }
 
 async function executer(d: Demande, r: ReglagesIA): Promise<{ brut: unknown; moteur: Moteur }> {
   const moteur = await choisirMoteur(r);
   if (moteur === "ollama") {
-    if (r.modeIA === "local" && !(await ollamaDisponible(r.ollamaUrl))) {
-      throw new IAIndisponible("Ollama ne répond pas sur " + r.ollamaUrl + ". Lance l'app Ollama, ou passe en mode Cloud.", "cloud");
+    if (!(await ollamaDisponible(r.ollamaUrl))) {
+      throw new IAIndisponible(
+        r.modeIA === "auto"
+          ? "Ni Claude ni Ollama ne sont disponibles. Ouvre Atelier Dressing sur ton Mac (Claude), ou lance Ollama."
+          : "Ollama ne répond pas sur " + r.ollamaUrl + ". Lance l'app Ollama, ou choisis Claude.",
+        r.modeIA === "auto" ? null : "claude",
+      );
     }
     return { brut: await viaOllama(d, r), moteur };
   }
-  return { brut: await viaClaude(d), moteur };
+  if (moteur === "claude") return { brut: await viaClaudeLocal(d, r.modeleClaude), moteur };
+  return { brut: await viaRelais(d, r.modeleClaude), moteur };
 }
 
 export async function analyserVetement(image: Image64, r: ReglagesIA, indice?: string) {
@@ -387,4 +454,8 @@ export async function analyserSilhouette(image: Image64, r: ReglagesIA) {
   return { avatar: normaliserSilhouette(brut), moteur };
 }
 
-export const NOM_MOTEUR: Record<Moteur, string> = { ollama: "Ollama (local)", claude: "Claude (cloud)" };
+export const NOM_MOTEUR: Record<Moteur, string> = {
+  ollama: "Ollama (local)",
+  claude: "Claude (ton forfait)",
+  "claude-relais": "Claude (ton forfait, via ton Mac)",
+};

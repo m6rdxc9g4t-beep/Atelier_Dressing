@@ -8,6 +8,10 @@ import { DepotLocal } from "./lib/depot-local";
 import { FournisseurDonnees, useDonnees } from "./lib/donnees";
 import { estTauri } from "./lib/plateforme";
 import { cloudConfigure, supabase } from "./lib/supabase";
+import { statutClaude, type ModeleClaude } from "./lib/claude";
+import { lireReglages } from "./lib/donnees";
+import { viaClaudeLocal, NOM_MOTEUR } from "./lib/ia";
+import { demarrerRelais } from "./lib/relais";
 import { Cabine } from "./screens/Cabine";
 import { Connexion, NouveauMotDePasse } from "./screens/Connexion";
 import { Dressing } from "./screens/Dressing";
@@ -81,6 +85,7 @@ export default function App() {
         <NouveauMotDePasse onFini={() => setRecuperation(false)} />
       ) : depot ? (
         <FournisseurDonnees depot={depot} key={depot.mode + (userId ?? "")}>
+          {estTauri && depot.mode === "cloud" && userId && <Relais userId={userId} />}
           <Coque email={session?.user.email ?? null} versConnexion={() => choisirLocal(false)} />
         </FournisseurDonnees>
       ) : (
@@ -88,6 +93,41 @@ export default function App() {
       )}
     </FournisseurToast>
   );
+}
+
+/** Nom de ce Mac pour le relais (stable, sans donnée personnelle). */
+function nomAppareil(): string {
+  try {
+    let n = localStorage.getItem("dressing.appareil");
+    if (!n) {
+      n = "Mac · " + Math.random().toString(36).slice(2, 6);
+      localStorage.setItem("dressing.appareil", n);
+    }
+    return n;
+  } catch {
+    return "Mac";
+  }
+}
+
+/**
+ * App Mac connectée : relais pour l'iPhone. Les demandes d'IA déposées par l'iPhone sont passées
+ * à Claude par la CLI de ce Mac (ton abonnement), puis la réponse repart vers l'iPhone.
+ */
+function Relais({ userId }: { userId: string }) {
+  useEffect(() => {
+    if (!supabase) return;
+    return demarrerRelais(
+      supabase,
+      userId,
+      nomAppareil(),
+      async () => (await statutClaude()).disponible,
+      async (d, modele) => ({
+        resultat: await viaClaudeLocal(d, (["sonnet", "opus", "haiku"].includes(modele) ? modele : lireReglages().modeleClaude) as ModeleClaude),
+        moteur: NOM_MOTEUR.claude,
+      }),
+    );
+  }, [userId]);
+  return null;
 }
 
 function lireHash(): Onglet {

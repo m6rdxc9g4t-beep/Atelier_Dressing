@@ -23,25 +23,37 @@ Ton dressing en photos et un mannequin qui te ressemble. Tu photographies chaque
 | Données et photos | IndexedDB de l'appareil (navigateur, iPhone ou app Mac) | Supabase (projet partagé avec atelier_Cuisine) : Postgres + RLS + bucket privé `dressing` |
 | Compte | aucun | e-mail et mot de passe, le même que pour Cuisine |
 | Mac ↔ iPhone | non (sauvegarde / import d'un fichier) | en temps réel |
-| IA | Ollama en local | Ollama ou Claude |
+| IA | Ollama, ou Claude par la CLI de l'app Mac | Ollama ou Claude ; sur l'iPhone, Claude passe par ton Mac |
 | Essayage réaliste | non | oui (FLUX.2) |
 
 L'écran de connexion propose aussi **Continuer sans compte**. **Réglages → Données** exporte tout (pièces, tenues, journal, mannequin et photos) dans un fichier JSON, et l'importe ailleurs : c'est aussi le chemin pour passer du mode local au mode synchronisé.
 
-## L'IA : Ollama en local, Claude en ligne
+## L'IA : Ollama ou Claude avec ton forfait
 
-Comme les autres apps de la suite, **Réglages → Intelligence artificielle** :
+Comme les autres apps de la suite (contrat `docs/SUITE.md` §5 d'Atelier_Tab), **Réglages → Intelligence artificielle** : **Moteur : Auto · Ollama · Claude**.
 
-- **Auto** (par défaut) : Ollama s'il répond en moins de 3 secondes, sinon Claude.
-- **Local** : Ollama sur le Mac, hors ligne et gratuit ; tes photos ne quittent pas l'ordinateur. Installe [Ollama](https://ollama.com), puis :
+- **Claude** : la **CLI Claude Code** de ton Mac, avec **ton abonnement Claude** (Pro ou Max), sans clé API. Modèle Sonnet (par défaut), Opus ou Haiku. Une fois pour toutes sur le Mac :
+  ```bash
+  curl -fsSL https://claude.ai/install.sh | bash   # si Claude Code n'est pas encore installé
+  claude auth login                                 # connexion avec ton compte Claude
+  ```
+  L'app Mac lance `claude -p` isolée (aucun outil, aucun fichier, environnement en liste blanche, délai de 180 s) ; la photo et les données passent par l'entrée standard, jamais en argument. Réglages affiche « Claude Code prêt » quand tout est bon.
+- **Sur l'iPhone** (ou dans un navigateur), la CLI ne peut pas tourner : la demande passe par **ton Mac**. Laisse l'app Mac ouverte et connectée au même compte ; l'iPhone dépose la demande, le Mac la passe à Claude avec ton forfait et renvoie la réponse (quelques secondes de plus). Réglages sur l'iPhone indique si ton Mac est prêt.
+- **Ollama** : sur le Mac, hors ligne et gratuit ; tes photos ne quittent pas l'ordinateur.
   ```bash
   ollama pull llama3.2-vision   # reconnaître les pièces, estimer ta silhouette
   ollama pull llama3.2          # composer les tenues
   ```
-  L'app Mac l'atteint directement ; depuis un navigateur, lance Ollama avec `OLLAMA_ORIGINS` autorisant l'adresse de l'app (`OLLAMA_ORIGINS=http://localhost:1430 ollama serve`). D'autres modèles de vision marchent aussi (`qwen2.5vl`, `gemma3`…) : change le nom dans les Réglages.
-- **Cloud** : Claude, via la fonction Edge `ia-dressing` ; fonctionne partout, iPhone compris. La clé API reste dans les secrets Supabase, jamais dans l'app.
+  Depuis un navigateur, lance Ollama avec `OLLAMA_ORIGINS` autorisant l'adresse de l'app.
+- **Auto** (par défaut) : Claude s'il est disponible, sinon Ollama. La réponse dit toujours le moteur utilisé.
 
-Si le moteur choisi ne répond pas, l'app le dit et propose de basculer sur l'autre. Sans aucune IA, tout reste utilisable : le détourage et les couleurs se font sur l'appareil, la fiche se remplit à la main, et les tenues sont composées par des règles (météo, saison, occasion, harmonie des couleurs, rotation).
+Quand Claude répond, il reçoit : la photo de la pièce scannée ; pour les tenues, la liste de tes pièces (nom, couleurs, saisons, dernier port) et la météo ; pour ton mannequin, ta photo en pied. Rien d'autre.
+
+Sans aucune IA, tout reste utilisable : le détourage et les couleurs se font sur l'appareil, la fiche se remplit à la main, et les tenues sont composées par des règles (météo, saison, occasion, harmonie des couleurs, rotation).
+
+### Ajustement sur ton corps
+
+À la reconnaissance, l'IA pose aussi des **repères** sur la photo de la pièce : coutures d'épaules (hauts, vestes, robes), ceinture et ourlet (bas). L'app cale ces points sur les épaules et la taille de ton mannequin, puis fait tomber le bas à sa longueur. Sans repères (Ollama, ou repères peu plausibles), l'app les mesure elle-même sur la photo détourée (ligne d'épaules, buste, ceinture). Dans la fiche d'une pièce, **Réajuster sur moi** redemande les repères à l'IA ; en Cabine, **Ajuster** permet de corriger au doigt.
 
 ## Essayage réaliste : toi, avec tes vrais vêtements
 
@@ -51,7 +63,7 @@ Le mannequin est un **collage** instantané et hors ligne : les photos détouré
 2. Habille le mannequin en Cabine, puis touche **Essayage réaliste**.
 3. Ta photo et celles des pièces partent vers **FLUX.2** (Black Forest Labs) par la fonction Edge `essayage`. Environ 20 à 40 secondes plus tard, tu as une photo de toi portant ces pièces exactes (couleurs, coupe, col, boutons, logos), avec ton visage, ta silhouette et ton décor. Elle est gardée dans **Tenues → Photos** et s'affiche sur la carte de la tenue.
 
-Ni Ollama ni Claude ne génèrent d'images, d'où ce troisième service. Il demande le mode synchronisé et une clé Black Forest Labs (environ 3 centimes par photo avec `flux-2-pro`, moins avec `flux-2-klein-4b`) :
+Ni Ollama ni Claude ne génèrent d'images (ton forfait Claude ne peut donc pas servir ici), d'où ce troisième service. Il demande le mode synchronisé et une clé Black Forest Labs (environ 3 centimes par photo avec `flux-2-pro`, moins avec `flux-2-klein-4b`) :
 
 1. Crée un compte sur [dashboard.bfl.ai](https://dashboard.bfl.ai), ajoute quelques crédits et crée une clé API.
 2. Supabase (projet Atelier_Cuisine) → **Edge Functions → Secrets** : ajoute `BFL_API_KEY`. Facultatif : `BFL_MODEL` (`flux-2-pro` par défaut, `flux-2-max` pour la meilleure qualité, `flux-2-klein-4b` pour le moins cher).
@@ -86,11 +98,12 @@ L'app web est hébergée sur Vercel (équipe FiKozZ, projet `atelier-dressing`, 
 │  iPhone   ── PWA Vercel       ├──┼──▶│    ports (journal), profils (mannequin)  │
 │  Navigateur                   ├──┘   │  Storage : bucket privé « dressing »     │
 │                               │      │  Auth · Realtime (synchro Mac ↔ iPhone)  │
-│  Détourage, couleurs,         │      │  Edge Function ia-dressing ──▶ Claude    │
+│  Détourage, couleurs,         │      │  ia_demandes / ia_relais (relais Claude) │
 │  mannequin : sur l'appareil   │      │                                          │
 │  Mode local : IndexedDB       │      └──────────────────────────────────────────┘
 │  IA : Ollama (Mac) ───────────┼──▶ http://localhost:11434
-│    ou Claude (cloud) ─────────┼──▶ ia-dressing
+│    ou Claude : CLI du Mac ────┼──▶ claude -p (ton abonnement)
+│    iPhone → ia_demandes ──────┼──▶ relais par l'app Mac
 └───────────────────────────────┘
 design/  charte néon champagne, icône, captures
 ```
@@ -98,7 +111,7 @@ design/  charte néon champagne, icône, captures
 | Dossier | Contenu |
 |---|---|
 | [`frontend/`](frontend/) | React 19 + TypeScript + Vite. PWA (service worker, manifeste). `src-tauri/` enveloppe le même code en app Mac native. La logique testée est dans `src/lib/` : détourage, géométrie du mannequin, suggestions de tenues, couleurs, normalisation des réponses de l'IA, dépôt local. |
-| [`backend/`](backend/) | Migrations SQL, fonction Edge `ia-dressing`, tests des migrations sur PGlite. Voir [backend/README.md](backend/README.md). |
+| [`backend/`](backend/) | Migrations SQL, fonction Edge `essayage`, tests des migrations sur PGlite. Voir [backend/README.md](backend/README.md). |
 | [`design/`](design/) | Charte, icône, captures. Voir [design/DESIGN.md](design/DESIGN.md). |
 
 ## Développer
@@ -107,7 +120,8 @@ design/  charte néon champagne, icône, captures
 cd frontend
 npm install
 npm run dev          # http://localhost:1430 (mode « Sur cet appareil » sans .env.local)
-npm test             # détourage, mannequin, suggestions, couleurs, IA, dépôt local
+npm test             # détourage, mannequin, ajustement, suggestions, couleurs, IA, CLI Claude, dépôt local
+cd src-tauri && cargo test   # lancement isolé de la CLI Claude (fausse CLI)
 npm run tauri dev    # app Mac en développement (sur un Mac, avec Rust)
 npm run mac          # compile le .dmg localement (sur un Mac)
 
@@ -117,7 +131,7 @@ npm install && npm test   # rejoue les migrations sur PGlite : RLS, déclencheur
 
 ## Le mode synchronisé
 
-Il est déjà branché : atelier_Dressing utilise le projet Supabase **Atelier_Cuisine** (`hcdiuxznceuixindcvhp`, Paris), dans ses propres tables (`vetements`, `tenues`, `ports`, `profils`, `essayages`) et son bucket `dressing`. Le compte de connexion est le même que pour Cuisine. Migrations appliquées et fonctions `ia-dressing` et `essayage` déployées le 2 novembre 2026. Le secret `ANTHROPIC_API_KEY` est celui de Cuisine.
+Il est déjà branché : atelier_Dressing utilise le projet Supabase **Atelier_Cuisine** (`hcdiuxznceuixindcvhp`, Paris), dans ses propres tables (`vetements`, `tenues`, `ports`, `profils`, `essayages`) et son bucket `dressing`. Le compte de connexion est le même que pour Cuisine. Migrations appliquées et fonction `essayage` déployée le 2 novembre 2026. Aucune clé Claude n'est nécessaire : Claude passe par la CLI de ton Mac.
 
 Pour redéployer après une modification du backend :
 
@@ -125,7 +139,6 @@ Pour redéployer après une modification du backend :
 cd backend
 supabase link --project-ref hcdiuxznceuixindcvhp
 supabase db push
-supabase functions deploy ia-dressing
 supabase functions deploy essayage
 ```
 

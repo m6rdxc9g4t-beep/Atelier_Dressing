@@ -11,7 +11,7 @@ import {
 } from "react";
 import type { Depot } from "./depot";
 import { profilVide } from "./depot-local";
-import { REGLAGES_IA_DEFAUT, type ReglagesIA } from "./ia";
+import { migrerModeIA, REGLAGES_IA_DEFAUT, type ReglagesIA } from "./ia";
 import { reperesDepuisAlpha, type Reperes } from "./mannequin";
 import { derniersPorts, nombrePorts } from "./suggestion";
 import { maintenant, type Essayage, type Garderobe, type Port, type Profil, type Tenue, type Vetement } from "./types";
@@ -31,7 +31,8 @@ const DEFAUT: Reglages = { ...REGLAGES_IA_DEFAUT, theme: "dark", meteo: true };
 
 let reglagesCourants: Reglages = (() => {
   try {
-    return { ...DEFAUT, ...JSON.parse(localStorage.getItem(CLE_REGLAGES) ?? "{}") };
+    const lu = { ...DEFAUT, ...JSON.parse(localStorage.getItem(CLE_REGLAGES) ?? "{}") } as Reglages;
+    return { ...lu, modeIA: migrerModeIA(lu.modeIA) };
   } catch {
     return DEFAUT;
   }

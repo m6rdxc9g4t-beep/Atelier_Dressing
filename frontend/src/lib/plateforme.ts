@@ -13,4 +13,4 @@ export const estIOS =
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
 
 /** Adresse publique de l'app web (pour les liens de confirmation d'e-mail). */
-export const URL_APP = import.meta.env.VITE_APP_URL || (estTauri ? "" : window.location.origin);
+export const URL_APP = import.meta.env.VITE_APP_URL || (estTauri || typeof window === "undefined" ? "" : window.location.origin);

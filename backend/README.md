@@ -15,9 +15,9 @@ Le backend du mode « Synchronisé ». Il vit dans le projet Supabase **Atelier_
 | bucket `dressing` | photos privées (WebP / PNG détourées, JPEG d'origine, visage), 10 Mo maximum, rangées par compte : `<user_id>/<clé>` |
 | `essayages` | photos d'essayage réaliste : pièces essayées, clé de l'image, modèle utilisé |
 | fonction Edge `essayage` | FLUX.2 (Black Forest Labs) : ta photo en pied + les photos des pièces → une photo de toi qui les porte. Secrets `BFL_API_KEY` (obligatoire) et `BFL_MODEL` (facultatif). |
-| fonction Edge `ia-dressing` | Claude : `vetement` (photo → fiche), `tenues` (dressing résumé + météo / occasion → 3 tenues), `silhouette` (photo en pied → proportions du mannequin). Exige un utilisateur connecté. |
+| `ia_demandes`, `ia_relais` | relais Claude : l'iPhone dépose une demande d'IA, l'app Mac ouverte sur le même compte la passe à Claude par sa CLI (ton abonnement) et écrit la réponse ; `ia_relais` dit quel Mac est ouvert |
 
-**Sécurité :** RLS sur toutes les tables et sur les photos ; chaque compte ne voit que ses données. Fonctions SQL en `security invoker` avec `search_path = ''`, vue en `security_invoker`. La clé API Claude est un secret de la fonction, jamais dans l'app.
+**Sécurité :** RLS sur toutes les tables et sur les photos ; chaque compte ne voit que ses données. Fonctions SQL en `security invoker` avec `search_path = ''`, vue en `security_invoker`. Claude ne passe par aucune clé API : la CLI Claude Code du Mac utilise l'abonnement de l'utilisateur. La fonction `ia-dressing` (Claude par clé API) des premières versions n'est plus utilisée et peut être supprimée du tableau de bord.
 
 **Synchro :** vêtements, tenues, journal et profil sont publiés en temps réel ; les photos sont téléchargées une fois puis gardées en cache dans IndexedDB.
 
@@ -29,8 +29,9 @@ supabase/
   migrations/20261102000000_dressing.sql          tables, vue, déclencheurs, RLS, temps réel
   migrations/20261102000100_stockage_photos.sql   bucket « dressing » et ses règles
   migrations/20261102000200_essayages.sql         photos d'essayage réaliste
+  migrations/20261102000300_relais_claude.sql     relais Claude iPhone → Mac
+  migrations/20261102000400_ajustement.sql        repères d'ajustement des pièces
   functions/essayage/index.ts                     FLUX.2 : essayage réaliste
-  functions/ia-dressing/index.ts                  IA Claude (mêmes consignes que frontend/src/lib/ia.ts)
 tests/
   migrations.test.mjs                             migrations rejouées sur PGlite + tests RLS
 ```
@@ -40,8 +41,7 @@ tests/
 ```bash
 supabase link --project-ref hcdiuxznceuixindcvhp
 supabase db push
-supabase secrets set BFL_API_KEY=...                # essayage réaliste (ANTHROPIC_API_KEY : déjà là pour Cuisine)
-supabase functions deploy ia-dressing
+supabase secrets set BFL_API_KEY=...                # essayage réaliste
 supabase functions deploy essayage
 ```
 

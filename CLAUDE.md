@@ -9,7 +9,7 @@ Avant toute modification, lis [`README.md`](README.md) et [`design/DESIGN.md`](d
 | Frontend | React 19 + TypeScript + Vite (`frontend/`), PWA iPhone (Vercel), app Mac Tauri (`frontend/src-tauri/`) |
 | Données | contrat `Depot` (`frontend/src/lib/depot.ts`) : `DepotLocal` (IndexedDB, sans compte) ou `DepotCloud` (Supabase + bucket `dressing`, temps réel) |
 | Base | Supabase Postgres + RLS (`backend/supabase/migrations/`) ; types côté app dans `frontend/src/lib/types.ts` (mêmes noms de colonnes) |
-| IA | `frontend/src/lib/ia.ts` : Ollama (local) / Claude via la fonction `ia-dressing` (cloud) / auto, bascule si Ollama ne répond pas en 3 s ; réponses toujours passées par `normaliser*` |
+| IA | `frontend/src/lib/ia.ts` : « Moteur : Auto · Ollama · Claude » (contrat `docs/SUITE.md` §5 d'Atelier_Tab). Claude = **CLI Claude Code du Mac, abonnement de l'utilisateur, jamais de clé API** : `src-tauri/src/claude.rs` (lancement isolé, testé avec `cargo test`) + `lib/claude.ts` ; sur l'iPhone, relais par le Mac (`lib/relais.ts`, tables `ia_demandes` / `ia_relais`). Réponses toujours passées par `normaliser*` |
 | Détourage | `frontend/src/lib/detourage.ts` (sans IA, sur l'appareil) |
 | Mannequin | `frontend/src/lib/mannequin.ts` (géométrie, zones, calage) + `components/Mannequin.tsx` (SVG) |
 | Tenues sans IA | `frontend/src/lib/suggestion.ts` (météo, saison, occasion, harmonie, rotation) |
@@ -18,9 +18,10 @@ Avant toute modification, lis [`README.md`](README.md) et [`design/DESIGN.md`](d
 
 ## Règles
 
-- TypeScript strict, pas de `any`. Les listes de catégories, saisons, occasions et longueurs existent en trois endroits : `lib/categories.ts`, les contraintes `check` SQL et `functions/ia-dressing/index.ts`. Les consignes et schémas de l'IA existent en double (`lib/ia.ts` et la fonction) : modifier les deux côtés.
-- Toute nouvelle table : RLS activée, politiques par `user_id`, fonctions SQL en `security invoker` avec `search_path = ''`, ajout à la publication `supabase_realtime`, et la même chose dans `DepotLocal` et `DepotCloud`.
-- Le mannequin pose les pièces à l'**échelle réelle** (`rectReel` dans `mannequin.ts` : épaules mesurées sur la photo → tes épaules, ceinture → ta taille) ; sans repères, la pièce remplit sa zone. Le réglage manuel (`calage`) s'applique par-dessus.
+- TypeScript strict, pas de `any`. Les listes de catégories, saisons, occasions et longueurs existent en deux endroits : `lib/categories.ts` et les contraintes `check` SQL. Consignes et schémas de l'IA : `lib/ia.ts` seulement (Ollama et Claude les partagent).
+- CLI Claude : arguments du contrat uniquement (`--safe-mode`, `--tools ""`, `--strict-mcp-config`…), aucune donnée en argument (prompt système = consignes ; photo et données sur l'entrée standard en stream-json), environnement en liste blanche, délai de 180 s.
+- Toute nouvelle table de données : RLS activée, politiques par `user_id`, fonctions SQL en `security invoker` avec `search_path = ''`, ajout à la publication `supabase_realtime`, et la même chose dans `DepotLocal` et `DepotCloud` (sauf les tables de transport du relais, `ia_demandes` et `ia_relais`).
+- Le mannequin pose les pièces à l'**échelle réelle** (`rectReel` dans `mannequin.ts`) : d'abord les repères de l'IA (`vetements.ajustement` : coutures d'épaules, ceinture, ourlet) calés sur les épaules et la taille du corps, sinon les repères mesurés sur la photo détourée, sinon la zone. Une photo retouchée efface `ajustement` (nouveau cadrage). Le réglage manuel (`calage`) s'applique par-dessus.
 - Une photo remplacée prend une **nouvelle clé** (le cache d'URL et le cache IndexedDB sont indexés par clé).
 - Ce que l'IA renvoie est toujours vérifié par l'utilisateur avant d'être enregistré (scanner : fiche à vérifier ; silhouette : réglages à enregistrer).
 - Design : charte « néon monochrome » de la suite Atelier, signature **champagne** (`#E6C79C` en néon, `#9C7643` en clair) posée dans `tokens.css` (le kit ne connaît pas encore Dressing). `frontend/src/styles/atelier-brand/` est une copie exacte du kit de la suite : ne jamais l'éditer ici. `app.css` et `neon.css` reprennent la base commune d'atelier_Cuisine ; ce qui est propre au dressing va dans `dressing.css`. `<html data-atelier-app="dressing">`, thème `data-theme="dark"` + classe `dark` (défaut) ou `data-theme="light"`. Les pastilles de couleur des vêtements montrent la vraie couleur, jamais la signature. Cibles tactiles de 44 px.
@@ -30,6 +31,7 @@ Avant toute modification, lis [`README.md`](README.md) et [`design/DESIGN.md`](d
 ```bash
 cd frontend && npm install && npm run dev      # http://localhost:1430
 cd frontend && npm test && npx tsc -b && npm run lint && npm run build
+cd frontend/src-tauri && cargo test             # CLI Claude isolée (sur un Mac ; ailleurs : module claude.rs seul)
 cd backend/tests && npm install && npm test     # migrations sur PGlite
 ```
 
