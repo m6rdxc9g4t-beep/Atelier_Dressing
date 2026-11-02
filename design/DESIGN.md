@@ -16,7 +16,7 @@ Couleurs littérales alignées sur `--atelier-bg` : `#141312` (néon) pour la fe
 ## Matières propres au dressing
 
 1. **Le mannequin** : silhouette SVG à tes proportions, peau dans ta carnation, **contour néon champagne**, lueur au sol. Les pièces s'y posent en couches (chaussures, bas, haut, robe, ceinture, veste, écharpe, bijoux, sac, lunettes, chapeau) avec une ombre portée douce.
-   En **3D** (vue par défaut de la Cabine) : même mannequin en volume, dans ses vêtements, sur un socle lumineux champagne, sous une lumière de cabine (ciel doux + projecteur de face) ; boutons Face · Profil · Dos et rotation automatique au choix (jamais lancée d'office). Une note discrète dit quelles pièces ont un dos imaginé.
+   En **3D** (vue par défaut de la Cabine) : le modèle 3D tiré de ta photo d'essayage, debout sur un socle lumineux champagne, sous une lumière de cabine ; boutons Face · Profil · Dos et rotation automatique au choix (jamais lancée d'office). Tant qu'il n'existe pas, le mannequin reste affiché avec une carte de verre « Créer la 3D » posée en bas de la scène ; pendant le calcul, un voile flouté dit l'étape en cours (pièce, file d'attente, volume).
 2. **La cabine** : panneau de verre avec un projecteur champagne en haut.
 3. **Le damier** sous les photos détourées, discret, pour voir la transparence.
 4. **Les pastilles de couleur** des pièces : la vraie couleur du vêtement, jamais la signature.
@@ -25,7 +25,7 @@ Couleurs littérales alignées sur `--atelier-bg` : `#141312` (néon) pour la fe
 
 | Onglet | Icône Lucide | Contenu |
 |---|---|---|
-| **Cabine** | `PersonStanding` | mannequin habillé (3D · 2D · Photo), portant par catégorie, occasion, météo, propositions de l'IA, ajustement, enregistrer / porter |
+| **Cabine** | `PersonStanding` | tenue en 3D · Photo · Mannequin, portant par catégorie, occasion, météo, propositions de l'IA, ajustement, enregistrer / porter |
 | **Dressing** | `Shirt` | grille des pièces, recherche, filtres, fiche avec aperçu sur le mannequin et coût par port |
 | **Scanner** | `ScanLine` (mis en avant dans la barre) | photo ou import multiple, détourage réglable, fiche pré-remplie par l'IA à vérifier |
 | **Tenues** | `Layers` | tenues enregistrées, journal, bilan |

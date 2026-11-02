@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarCheck,
+  Box,
   Camera,
   CloudRain,
   LoaderCircle,
@@ -23,11 +24,12 @@ import { basculerPiece, choisirProposition, deshabiller, habiller, montrerPropos
 import { CATEGORIES_CABINE, LIBELLE_CATEGORIE, LIBELLE_OCCASION, OCCASIONS, saisonDuJour } from "../lib/categories";
 import { aujourdhui } from "../lib/dates";
 import { useDonnees, useImage, useReglages } from "../lib/donnees";
-import { essayer, EssayageImpossible, memesPieces } from "../lib/essayage";
+import { creer3D, essayer, essayerHF, EssayageImpossible, memesPieces } from "../lib/essayage";
+import { jetonValide } from "../lib/hf";
 import { NOM_MOTEUR, proposerTenuesIA, resumeDressing } from "../lib/ia";
 import { meteoDuJour, type Meteo } from "../lib/meteo";
 import { nettoyerTenue, proposerTenue } from "../lib/suggestion";
-import { CALAGE_NEUTRE, maintenant, nouvelId, type Calage, type Occasion, type Vetement } from "../lib/types";
+import { CALAGE_NEUTRE, maintenant, nouvelId, type Calage, type Essayage, type Occasion, type Vetement } from "../lib/types";
 
 // La 3D (three.js) n'est chargée que si on l'affiche
 const Vue3D = lazy(() => import("../components/Vue3D"));
@@ -50,7 +52,7 @@ const TEMPERATURES = [
   { v: 30, l: "Canicule" },
 ];
 
-export function Cabine({ versScanner }: { versScanner: () => void }) {
+export function Cabine({ versScanner, versReglages }: { versScanner: () => void; versReglages?: () => void }) {
   const { vetements, tenues, ports, profil, derniers, depot, essayages, enregistrerVetement, enregistrerTenue, enregistrerPort, enregistrerEssayage } =
     useDonnees();
   const [reglages] = useReglages();
@@ -66,6 +68,7 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
   const [calages, setCalages] = useState<Record<string, Calage>>({});
   const [sauver, setSauver] = useState(false);
   const [generation, setGeneration] = useState(false);
+  const [suivi, setSuivi] = useState("");
   const [vue, setVueEtat] = useState<VueCabine>(lireVue);
   const setVue = (v: VueCabine) => {
     setVueEtat(v);
@@ -87,20 +90,59 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
   // Dernier essayage réaliste de la tenue en cours, s'il existe
   const essai = cabine.pieces.length ? essayages.find((e) => memesPieces(e.pieces, cabine.pieces.filter((id) => parId.get(id)?.categorie !== "autre"))) : undefined;
   const photoEssai = useImage(essai?.image);
-  const vueEffective: VueCabine = ajuster ? "2d" : vue === "photo" && !essai ? "3d" : vue;
+  const modele3d = useImage(essai?.modele_3d ?? undefined);
+  const vueEffective: VueCabine = ajuster ? "2d" : vue;
+  const avecHF = reglages.moteurEssayage !== "flux";
 
-  async function essayageReel() {
+  /** Photo d'essayage (Leffa ou FLUX.2), puis, si demandé, le modèle 3D (TRELLIS.2). */
+  async function essayageReel(aussi3D = false) {
+    if ((avecHF || aussi3D) && !jetonValide(reglages.jetonHF)) {
+      toast("Ajoute d'abord ton jeton Hugging Face (gratuit) dans les Réglages.", { erreur: true });
+      versReglages?.();
+      return;
+    }
     setGeneration(true);
     setAjuster(false);
+    setSuivi("Préparation des photos");
     try {
-      const e = await essayer(depot, profil, portees);
+      let e: Essayage = avecHF ? await essayerHF(depot, profil, portees, reglages.jetonHF, setSuivi) : await essayer(depot, profil, portees);
       await enregistrerEssayage(e);
-      setVue("photo");
-      toast("Ta photo est prête, elle est gardée dans Tenues → Photos");
-    } catch (e) {
-      toast(e instanceof EssayageImpossible ? e.message : "Essayage impossible pour le moment.", { erreur: true });
+      if (aussi3D) {
+        e = await creer3D(depot, e, reglages.jetonHF, setSuivi);
+        await enregistrerEssayage(e);
+        setVue("3d");
+        toast("Ta tenue est en 3D : fais-la tourner au doigt");
+      } else {
+        setVue("photo");
+        toast("Ta photo est prête, elle est gardée dans Tenues → Photos");
+      }
+    } catch (err) {
+      toast(err instanceof EssayageImpossible ? err.message : "Essayage impossible pour le moment.", { erreur: true });
     } finally {
       setGeneration(false);
+      setSuivi("");
+    }
+  }
+
+  async function passerEn3D() {
+    if (!essai) return essayageReel(true);
+    if (!jetonValide(reglages.jetonHF)) {
+      toast("Ajoute d'abord ton jeton Hugging Face (gratuit) dans les Réglages.", { erreur: true });
+      versReglages?.();
+      return;
+    }
+    setGeneration(true);
+    setAjuster(false);
+    setSuivi("3D");
+    try {
+      await enregistrerEssayage(await creer3D(depot, essai, reglages.jetonHF, setSuivi));
+      setVue("3d");
+      toast("Ta tenue est en 3D : fais-la tourner au doigt");
+    } catch (err) {
+      toast(err instanceof EssayageImpossible ? err.message : "La 3D n'a pas pu être créée.", { erreur: true });
+    } finally {
+      setGeneration(false);
+      setSuivi("");
     }
   }
 
@@ -274,8 +316,8 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
               {(
                 [
                   ["3d", "3D"],
-                  ["2d", "Mannequin 2D"],
-                  ...(photoEssai ? [["photo", "Photo réaliste"]] : []),
+                  ["photo", "Photo"],
+                  ["2d", "Mannequin"],
                 ] as [VueCabine, string][]
               ).map(([v, l]) => (
                 <button key={v} role="radio" className="segment" aria-checked={vueEffective === v} aria-selected={vueEffective === v} onClick={() => setVue(v)}>
@@ -285,12 +327,12 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
             </div>
           )}
           <div className={"panneau cabine__scene" + (ajuster ? " cabine__scene--ajuster" : "") + (vueEffective === "3d" ? " cabine__scene--3d" : "")} aria-busy={generation}>
-            {vueEffective === "photo" && photoEssai ? (
-              <img className="cabine__photo" src={photoEssai} alt={"Toi, portant : " + portees.map((p) => p.nom).join(", ")} />
-            ) : vueEffective === "3d" ? (
+            {vueEffective === "3d" && modele3d ? (
               <Suspense fallback={<div className="vue3d__etat">Chargement de la 3D…</div>}>
-                <Vue3D avatar={profil.avatar} pieces={portees} depot={depot} />
+                <Vue3D url={modele3d} libelle={"Toi en 3D, portant : " + portees.map((p) => p.nom).join(", ") + "."} />
               </Suspense>
+            ) : vueEffective !== "2d" && photoEssai ? (
+              <img className="cabine__photo" src={photoEssai} alt={"Toi, portant : " + portees.map((p) => p.nom).join(", ")} />
             ) : (
               <Mannequin
                 avatar={profil.avatar}
@@ -302,11 +344,27 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
               />
             )}
             {!portees.length && <p className="cabine__invite">Touche une pièce à droite, ou laisse l'IA composer une tenue.</p>}
+            {!generation && portees.length > 0 && vueEffective === "3d" && !modele3d && (
+              <div className="cabine__appel">
+                <p>{essai ? "Fais tourner cette photo en 3D." : "La 3D part d'une photo de toi qui porte la tenue : on la crée d'abord, puis le volume."}</p>
+                <button className="bouton bouton--action" onClick={passerEn3D}>
+                  <Box size={18} aria-hidden /> Créer la 3D
+                </button>
+              </div>
+            )}
+            {!generation && portees.length > 0 && vueEffective === "photo" && !photoEssai && (
+              <div className="cabine__appel">
+                <p>Une vraie photo de toi qui porte ces pièces.</p>
+                <button className="bouton bouton--action" onClick={() => essayageReel()}>
+                  <Camera size={18} aria-hidden /> Essayage réaliste
+                </button>
+              </div>
+            )}
             {generation && (
               <div className="cabine__generation" role="status">
                 <LoaderCircle className="tourne" size={32} aria-hidden />
-                <p>Ta photo se prépare…</p>
-                <p className="note">Environ 20 à 40 secondes.</p>
+                <p>{suivi || "Préparation…"}</p>
+                <p className="note">{avecHF ? "Hugging Face : de 30 secondes à quelques minutes selon la file d'attente." : "Environ 20 à 40 secondes."}</p>
               </div>
             )}
           </div>
@@ -388,9 +446,14 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
               {enCours ? <LoaderCircle className="tourne" size={18} aria-hidden /> : <Sparkles size={18} aria-hidden />}
               {enCours ? "Le styliste réfléchit…" : "Proposer une tenue"}
             </button>
-            <button className="bouton bouton--discret" onClick={essayageReel} disabled={!portees.length || generation} title="Une vraie photo de toi avec ces pièces">
+            <button className="bouton bouton--discret" onClick={() => essayageReel()} disabled={!portees.length || generation} title="Une vraie photo de toi avec ces pièces">
               <Camera size={18} aria-hidden /> {essai ? "Refaire la photo" : "Essayage réaliste"}
             </button>
+            {essai && (
+              <button className="bouton bouton--discret" onClick={passerEn3D} disabled={generation} title="Le modèle 3D tiré de la photo d'essayage">
+                <Box size={18} aria-hidden /> {essai.modele_3d ? "Refaire la 3D" : "Créer la 3D"}
+              </button>
+            )}
             <button className="bouton bouton--discret" onClick={auHasard} title="Tirage instantané, sans IA">
               <Shuffle size={18} aria-hidden /> Au hasard
             </button>

@@ -217,7 +217,7 @@ function Coque({ email, versConnexion }: { email: string | null; versConnexion: 
           <div className="demarrage demarrage--contenu" aria-busy="true" />
         ) : (
           <>
-            {onglet === "cabine" && <Cabine versScanner={() => aller("scanner")} />}
+            {onglet === "cabine" && <Cabine versScanner={() => aller("scanner")} versReglages={() => setReglages(true)} />}
             {onglet === "dressing" && <Dressing versScanner={() => aller("scanner")} versCabine={() => aller("cabine")} />}
             {onglet === "scanner" && <Scanner versDressing={() => aller("dressing")} />}
             {onglet === "tenues" && <Tenues versCabine={() => aller("cabine")} />}

@@ -91,9 +91,10 @@ export class DepotCloud implements Depot {
   }
 
   async supprimerEssayage(id: string) {
-    const { data } = await this.sb.from("essayages").select("image").eq("id", id).maybeSingle();
+    const { data } = await this.sb.from("essayages").select("image, modele_3d").eq("id", id).maybeSingle();
     await this.verifier(this.sb.from("essayages").delete().eq("id", id));
     if (data?.image) await this.supprimerImage(data.image);
+    if (data?.modele_3d) await this.supprimerImage(data.modele_3d);
   }
 
   async ecrireImage(cle: string, b: Blob) {

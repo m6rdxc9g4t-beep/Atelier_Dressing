@@ -99,6 +99,7 @@ export class DepotLocal implements Depot {
     const e = await lire<Essayage>(db, "essayages", id);
     await effacer(db, "essayages", id);
     if (e?.image) await effacer(db, "images", e.image);
+    if (e?.modele_3d) await effacer(db, "images", e.modele_3d);
   }
 
   async ecrireImage(cle: string, b: Blob) {

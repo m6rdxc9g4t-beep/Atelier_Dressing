@@ -8,7 +8,7 @@ Ton dressing en photos et un mannequin qui te ressemble. Tu photographies chaque
 
 | Onglet | |
 |---|---|
-| **Cabine** | Ton mannequin **en 3D**, habillé de **tes** pièces : il est *dans* les vêtements, et tu le fais tourner au doigt (Face, Profil, Dos, rotation automatique). Les pièces sont posées à l'échelle réelle (épaules du vêtement sur tes épaules, ceinture sur ta taille). Vues **3D**, **2D** (collage à plat) et **Photo** (essayage réaliste). **Essayage réaliste** : une vraie photo de toi qui porte ces pièces, générée à partir de ta photo en pied (voir plus bas). Touche une pièce sur le portant pour l'enfiler (une robe remplace le haut et le bas). **Proposer une tenue** : le styliste IA compose jusqu'à 3 tenues selon la météo du jour, l'occasion (travail, soirée, sport…) et ce que tu n'as pas porté depuis longtemps. **Au hasard** fait un tirage instantané sans IA. **Ajuster** : fais glisser une pièce sur le mannequin (molette ou curseur pour la taille) ; le réglage est gardé pour toutes tes tenues. **Enregistrer la tenue**, **Je la porte aujourd'hui**. |
+| **Cabine** | Trois vues de ta tenue : **3D** (toi, habillé de **tes** pièces, en volume : tu tournes autour au doigt, Face, Profil, Dos), **Photo** (une vraie photo de toi qui porte ces pièces) et **Mannequin** (collage instantané et hors ligne, pièces posées à l'échelle réelle : épaules du vêtement sur tes épaules, ceinture sur ta taille). Photo et 3D se créent gratuitement avec Hugging Face (voir plus bas). Touche une pièce sur le portant pour l'enfiler (une robe remplace le haut et le bas). **Proposer une tenue** : le styliste IA compose jusqu'à 3 tenues selon la météo du jour, l'occasion (travail, soirée, sport…) et ce que tu n'as pas porté depuis longtemps. **Au hasard** fait un tirage instantané sans IA. **Ajuster** : fais glisser une pièce sur le mannequin (molette ou curseur pour la taille) ; le réglage est gardé pour toutes tes tenues. **Enregistrer la tenue**, **Je la porte aujourd'hui**. |
 | **Dressing** | Toutes tes pièces, détourées, par catégorie (hauts, bas, robes, vestes, chaussures, sacs, chapeaux, lunettes, écharpes, bijoux, ceintures). Recherche (« lin », « bleu marine », une marque), filtres saison / favoris / archivées, tri par pièces les moins portées. La fiche montre la pièce sur ton mannequin, combien de fois tu l'as portée et son **coût par port**. Retouche du détourage à partir de la photo d'origine. **Photo de dos** : ajoute-la (fichier ou lien de boutique) pour que la 3D montre le vrai dos. |
 | **Scanner** | **Prendre une photo** (appareil de l'iPhone) ou **importer plusieurs photos** d'un coup (glisser-déposer sur Mac), ou **Depuis un lien de boutique** : colle l'adresse de la fiche produit, choisis la photo de face et celle de dos. Détourage automatique sur l'appareil, réglable (tolérance du fond, ou photo entière). L'IA remplit la fiche pendant ce temps ; tu vérifies, l'aperçu sur ton mannequin se met à jour, puis **Ajouter au dressing**. |
 | **Tenues** | Tes tenues enregistrées (avec leur photo réaliste si tu l'as faite), tes **photos d'essayage**, le **journal** de ce que tu as porté, et un **bilan** : pièces portées ces 90 derniers jours, valeur du dressing, coût moyen par port, pièces à ressortir du placard, pièces préférées. |
@@ -24,7 +24,7 @@ Ton dressing en photos et un mannequin qui te ressemble. Tu photographies chaque
 | Compte | aucun | e-mail et mot de passe, le même que pour Cuisine |
 | Mac ↔ iPhone | non (sauvegarde / import d'un fichier) | en temps réel |
 | IA | Ollama, ou Claude par la CLI de l'app Mac | Ollama ou Claude ; sur l'iPhone, Claude passe par ton Mac |
-| Essayage réaliste | non | oui (FLUX.2) |
+| Essayage réaliste et 3D | oui (Hugging Face) | oui (Hugging Face, ou FLUX.2) |
 
 L'écran de connexion propose aussi **Continuer sans compte**. **Réglages → Données** exporte tout (pièces, tenues, journal, mannequin et photos) dans un fichier JSON, et l'importe ailleurs : c'est aussi le chemin pour passer du mode local au mode synchronisé.
 
@@ -55,26 +55,28 @@ Sans aucune IA, tout reste utilisable : le détourage et les couleurs se font su
 
 À la reconnaissance, l'IA pose aussi des **repères** sur la photo de la pièce : coutures d'épaules (hauts, vestes, robes), ceinture et ourlet (bas). L'app cale ces points sur les épaules et la taille de ton mannequin, puis fait tomber le bas à sa longueur. Sans repères (Ollama, ou repères peu plausibles), l'app les mesure elle-même sur la photo détourée (ligne d'épaules, buste, ceinture). Dans la fiche d'une pièce, **Réajuster sur moi** redemande les repères à l'IA ; en Cabine, **Ajuster** permet de corriger au doigt.
 
-### La 3D
+### Photos de boutique
 
-La vue 3D reconstruit un volume à partir des photos : ton corps (à tes mesures) est gonflé en coupes elliptiques, chaque pièce devient une enveloppe un peu plus large que ce qu'elle recouvre (corps et couches du dessous), avec ses côtés fermés, puis la photo de face est plaquée devant et la **photo de dos** derrière. Sans photo de dos, le dos est imaginé à partir de la face (en miroir, assombri) et la Cabine le signale. Ce n'est pas une simulation de tissu : les plis et la tombée sont ceux des photos. Les lunettes et bijoux restent à plat sur la face.
+Pour les meilleures photos de pièces, le plus simple est la fiche produit de la boutique (photos sur fond uni) : **Scanner → Depuis un lien de boutique**, ou dans la fiche d'une pièce, **Photo de dos → Depuis un lien**. La fonction Edge `importer-lien` lit la page et rapporte ses photos ; certaines boutiques bloquent cette lecture : enregistre alors les photos et importe-les comme fichiers.
 
-Pour les meilleures photos, le plus simple est la fiche produit de la boutique (photos sur fond uni, de face et de dos) : **Scanner → Depuis un lien de boutique**, ou dans la fiche d'une pièce, **Photo de dos → Depuis un lien**. La fonction Edge `importer-lien` lit la page et rapporte ses photos ; certaines boutiques bloquent cette lecture : enregistre alors les deux photos et importe-les comme fichiers.
+## Essayage réaliste et 3D : toi, avec tes vrais vêtements
 
-## Essayage réaliste : toi, avec tes vrais vêtements
+Le mannequin est un collage. Pour te voir **vraiment** habillé :
 
-Le mannequin est un **collage** instantané et hors ligne : les photos détourées de tes pièces sur une silhouette à tes proportions. Pour te voir **vraiment** habillé, la Cabine a un bouton **Essayage réaliste** :
+1. Dans **Moi**, ajoute une photo de toi en pied (de face, debout, bras un peu écartés, fond simple et uni).
+2. **Réglages → Essayage réaliste et 3D** : colle ton jeton Hugging Face (compte gratuit, puis [un jeton « Read »](https://huggingface.co/settings/tokens)). Il reste sur l'appareil.
+3. Habille le mannequin en Cabine, puis **Essayage réaliste** (vue Photo) ou **Créer la 3D** (vue 3D).
 
-1. Dans **Moi**, ajoute une photo de toi en pied (de face, debout, bras un peu écartés, fond simple).
-2. Habille le mannequin en Cabine, puis touche **Essayage réaliste**.
-3. Ta photo et celles des pièces partent vers **FLUX.2** (Black Forest Labs) par la fonction Edge `essayage`. Environ 20 à 40 secondes plus tard, tu as une photo de toi portant ces pièces exactes (couleurs, coupe, col, boutons, logos), avec ton visage, ta silhouette et ton décor. Elle est gardée dans **Tenues → Photos** et s'affiche sur la carte de la tenue.
+Ce qui se passe :
 
-Ni Ollama ni Claude ne génèrent d'images (ton forfait Claude ne peut donc pas servir ici), d'où ce troisième service. Il demande le mode synchronisé et une clé Black Forest Labs (environ 3 centimes par photo avec `flux-2-pro`, moins avec `flux-2-klein-4b`) :
+- **Photo** : [Leffa](https://huggingface.co/spaces/franciszzj/Leffa) (CVPR 2025) pose tes pièces une à une sur ta photo : le bas, puis le haut, puis la veste par-dessus (une robe remplace les deux). Chaussures et accessoires ne sont pas posés. La photo est gardée dans **Tenues → Photos**.
+- **3D** : [TRELLIS.2](https://huggingface.co/spaces/microsoft/TRELLIS.2) (Microsoft) transforme cette photo en modèle 3D texturé (GLB), rangé avec elle. Le devant est fidèle à la photo ; le dos et les côtés sont reconstruits par le modèle.
 
-1. Crée un compte sur [dashboard.bfl.ai](https://dashboard.bfl.ai), ajoute quelques crédits et crée une clé API.
-2. Supabase (projet Atelier_Cuisine) → **Edge Functions → Secrets** : ajoute `BFL_API_KEY`. Facultatif : `BFL_MODEL` (`flux-2-pro` par défaut, `flux-2-max` pour la meilleure qualité, `flux-2-klein-4b` pour le moins cher).
+**Gratuit, avec des limites.** Ces démos tournent sur les GPU partagés de Hugging Face (ZeroGPU). Un compte gratuit a quelques minutes de GPU par jour : compte une tenue photographiée et mise en 3D par jour ; un compte PRO en donne huit fois plus. Quand le quota est épuisé, l'app le dit et indique dans combien de temps réessayer. Les démos publiques peuvent aussi être en file d'attente ou en pause. Le temps d'un essayage, ta photo en pied et celles des pièces passent par les serveurs de Hugging Face.
 
-Ta photo en pied ne quitte ton dressing qu'au moment d'un essayage.
+**FLUX.2 (payant), en option.** Dans les Réglages, le moteur de photo peut passer à FLUX.2 (Black Forest Labs), par la fonction Edge `essayage` : une seule image pour toute la tenue, accessoires compris, environ 3 centimes la photo. Il demande le mode synchronisé et une clé : compte sur [dashboard.bfl.ai](https://dashboard.bfl.ai), puis Supabase (projet Atelier_Cuisine) → **Edge Functions → Secrets** : `BFL_API_KEY` (et, facultatif, `BFL_MODEL`). La 3D passe toujours par Hugging Face.
+
+Ni Ollama ni ton forfait Claude ne génèrent d'images, d'où ces services à part.
 
 ## Installer
 
@@ -104,7 +106,7 @@ L'app web est hébergée sur Vercel (équipe FiKozZ, projet `atelier-dressing`, 
 │  iPhone   ── PWA Vercel       ├──┼──▶│    ports (journal), profils (mannequin)  │
 │  Navigateur                   ├──┘   │  Storage : bucket privé « dressing »     │
 │                               │      │  Auth · Realtime (synchro Mac ↔ iPhone)  │
-│  Détourage, couleurs, 3D,     │      │  ia_demandes / ia_relais (relais Claude) │
+│  Détourage, couleurs,         │      │  ia_demandes / ia_relais (relais Claude) │
 │  mannequin : sur l'appareil   │      │                                          │
 │  Mode local : IndexedDB       │      └──────────────────────────────────────────┘
 │  IA : Ollama (Mac) ───────────┼──▶ http://localhost:11434
@@ -116,7 +118,7 @@ design/  charte néon champagne, icône, captures
 
 | Dossier | Contenu |
 |---|---|
-| [`frontend/`](frontend/) | React 19 + TypeScript + Vite. PWA (service worker, manifeste). `src-tauri/` enveloppe le même code en app Mac native. La logique testée est dans `src/lib/` : détourage, géométrie du mannequin, volumes 3D (`volume.ts`, rendu three.js dans `components/Vue3D.tsx`), suggestions de tenues, couleurs, normalisation des réponses de l'IA, dépôt local. |
+| [`frontend/`](frontend/) | React 19 + TypeScript + Vite. PWA (service worker, manifeste). `src-tauri/` enveloppe le même code en app Mac native. La logique testée est dans `src/lib/` : détourage, géométrie du mannequin, essayage et 3D par Hugging Face (`hf.ts`, `essayage.ts`, visionneuse three.js dans `components/Vue3D.tsx`), suggestions de tenues, couleurs, normalisation des réponses de l'IA, dépôt local. |
 | [`backend/`](backend/) | Migrations SQL, fonctions Edge `essayage` et `importer-lien`, tests des migrations sur PGlite. Voir [backend/README.md](backend/README.md). |
 | [`design/`](design/) | Charte, icône, captures. Voir [design/DESIGN.md](design/DESIGN.md). |
 

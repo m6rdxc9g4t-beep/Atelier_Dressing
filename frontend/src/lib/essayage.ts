@@ -1,5 +1,10 @@
 // Essayage réaliste : une vraie photo de toi qui porte tes pièces.
 //
+// Deux moteurs :
+//  * Hugging Face (par défaut, gratuit) : Leffa pose les pièces une à une sur ta
+//    photo en pied, puis TRELLIS.2 peut en tirer un modèle 3D (voir hf.ts) ;
+//  * FLUX.2 (payant, mode synchronisé), décrit ci-dessous.
+//
 // Ta photo en pied (profil) et les photos de tes pièces partent vers la fonction
 // Edge « essayage », qui demande à FLUX.2 (Black Forest Labs) d'habiller la
 // personne de la photo 1 avec les vêtements des photos suivantes, en gardant
@@ -11,7 +16,8 @@
 
 import { PLAN } from "./categories";
 import type { Depot } from "./depot";
-import { imagePourIA, ratioDe } from "./images";
+import { essayerPiece, ErreurHF, modele3D, typeEssai, type SuiviHF } from "./hf";
+import { bitmapDe, imagePourIA, ratioDe, reduire, reduireEnJpeg } from "./images";
 import { supabase } from "./supabase";
 import { nouvelId, maintenant, type Essayage, type Profil, type Vetement } from "./types";
 
@@ -153,3 +159,77 @@ export async function essayer(depot: Depot, profil: Profil, pieces: Vetement[]):
 
 /** Même ensemble de pièces (ordre indifférent). */
 export const memesPieces = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+
+// ------------------------------------------------------------ Hugging Face
+
+/** Pièces que Leffa sait poser, dans l'ordre des passages : robe ou bas, puis haut, puis veste par-dessus. */
+export function piecesPourHF(pieces: Vetement[]): Vetement[] {
+  const rang = (v: Vetement) => (v.categorie === "robe" ? 0 : v.categorie === "bas" ? 1 : v.categorie === "haut" ? 2 : 3);
+  return pieces.filter((v) => typeEssai(v.categorie) && (v.image || v.image_originale)).sort((a, b) => rang(a) - rang(b));
+}
+
+/** Pièce détourée posée sur fond blanc (Leffa est entraîné sur des photos produit). */
+async function surFondBlanc(source: Blob, max = 1024): Promise<Blob> {
+  const bmp = await bitmapDe(source);
+  const [w, h] = reduire(bmp.width, bmp.height, max);
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d");
+  if (!ctx) throw new EssayageImpossible("Ton appareil ne peut pas préparer les photos.");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(bmp, 0, 0, w, h);
+  bmp.close?.();
+  return new Promise((ok, ko) => c.toBlob((b) => (b ? ok(b) : ko(new EssayageImpossible("Photo illisible."))), "image/jpeg", 0.92));
+}
+
+const pourErreur = (e: unknown, defaut: string) =>
+  e instanceof EssayageImpossible ? e : new EssayageImpossible(e instanceof ErreurHF ? e.message : e instanceof Error ? e.message : defaut);
+
+/** Habille ta photo en pied de la tenue, pièce par pièce, avec Leffa. */
+export async function essayerHF(depot: Depot, profil: Profil, pieces: Vetement[], jeton: string, suivi?: SuiviHF): Promise<Essayage> {
+  if (!profil.avatar.photo_pied) throw new EssayageImpossible("Ajoute d'abord une photo de toi en pied, dans l'onglet Moi.");
+  const choisies = piecesPourHF(pieces);
+  if (!choisies.length) throw new EssayageImpossible("Mets au moins un haut, un bas, une veste ou une robe sur le mannequin.");
+  const photo = await depot.lireImage(profil.avatar.photo_pied);
+  if (!photo) throw new EssayageImpossible("Ta photo en pied est introuvable. Ajoute-la de nouveau dans l'onglet Moi.");
+  try {
+    let personne = await reduireEnJpeg(photo, 1280, 0.92);
+    for (const [i, v] of choisies.entries()) {
+      const b = await depot.lireImage((v.image ?? v.image_originale)!);
+      if (!b) throw new EssayageImpossible(`La photo de « ${v.nom} » est introuvable.`);
+      const libelle = choisies.length > 1 ? `Pièce ${i + 1}/${choisies.length} : ${v.nom}` : v.nom;
+      suivi?.(libelle);
+      personne = await essayerPiece(personne, await surFondBlanc(b), typeEssai(v.categorie)!, jeton, suivi, libelle);
+    }
+    const id = nouvelId();
+    const cle = `essai-${id}.${personne.type === "image/jpeg" ? "jpg" : personne.type === "image/webp" ? "webp" : "png"}`;
+    await depot.ecrireImage(cle, personne.type.startsWith("image/") ? personne : new Blob([personne], { type: "image/png" }));
+    return {
+      id,
+      pieces: pieces.filter((v) => v.categorie !== "autre").map((v) => v.id),
+      image: cle,
+      modele_3d: null,
+      moteur: "Leffa (Hugging Face)",
+      cree_le: maintenant(),
+    };
+  } catch (e) {
+    throw pourErreur(e, "Essayage impossible pour le moment.");
+  }
+}
+
+/** Tire un modèle 3D de la photo d'essayage, avec TRELLIS.2, et le range avec elle. */
+export async function creer3D(depot: Depot, essai: Essayage, jeton: string, suivi?: SuiviHF): Promise<Essayage> {
+  const photo = await depot.lireImage(essai.image);
+  if (!photo) throw new EssayageImpossible("La photo d'essayage est introuvable.");
+  try {
+    const glb = await modele3D(photo, jeton, suivi);
+    const cle = `essai-${essai.id}-${Date.now().toString(36)}.glb`;
+    await depot.ecrireImage(cle, glb);
+    if (essai.modele_3d) await depot.supprimerImage(essai.modele_3d).catch(() => {});
+    return { ...essai, modele_3d: cle };
+  } catch (e) {
+    throw pourErreur(e, "La 3D n'a pas pu être créée.");
+  }
+}

@@ -24,10 +24,14 @@ export interface Reglages extends ReglagesIA {
   theme: Theme;
   /** Météo automatique (position de l'appareil) pour les propositions de tenue. */
   meteo: boolean;
+  /** Essayage réaliste : Hugging Face (gratuit, Leffa + TRELLIS.2) ou FLUX.2 (payant, mode synchronisé). */
+  moteurEssayage: "hf" | "flux";
+  /** Jeton Hugging Face (lecture), gardé sur cet appareil seulement. */
+  jetonHF: string;
 }
 
 const CLE_REGLAGES = "dressing.reglages";
-const DEFAUT: Reglages = { ...REGLAGES_IA_DEFAUT, theme: "dark", meteo: true };
+const DEFAUT: Reglages = { ...REGLAGES_IA_DEFAUT, theme: "dark", meteo: true, moteurEssayage: "hf", jetonHF: "" };
 
 let reglagesCourants: Reglages = (() => {
   try {

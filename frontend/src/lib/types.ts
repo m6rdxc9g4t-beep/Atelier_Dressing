@@ -149,6 +149,8 @@ export interface Essayage {
   id: string;
   pieces: string[];
   image: string; // clé de la photo générée
+  /** Clé du modèle 3D (GLB) tiré de cette photo, s'il a été créé. */
+  modele_3d?: string | null;
   moteur: string;
   cree_le: string;
 }

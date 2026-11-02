@@ -5,6 +5,7 @@ import { etatRelais } from "../lib/relais";
 import { Feuille } from "../components/Feuille";
 import { useToast } from "../components/Toast";
 import { useDonnees, useReglages } from "../lib/donnees";
+import { jetonValide, PAGE_JETONS } from "../lib/hf";
 import { ollamaDisponible, type ModeIA } from "../lib/ia";
 import { estInstallee, estIOS, estTauri } from "../lib/plateforme";
 import { exporter, importer } from "../lib/sauvegarde";
@@ -187,6 +188,61 @@ export function Reglages({
               </div>
             </>
           )}
+        </section>
+
+        <section>
+          <h3>Essayage réaliste et 3D</h3>
+          <div className="segments" role="radiogroup" aria-label="Moteur d'essayage">
+            {(
+              [
+                ["hf", "Hugging Face (gratuit)"],
+                ["flux", "FLUX.2 (payant)"],
+              ] as const
+            ).map(([v, l]) => (
+              <button
+                key={v}
+                role="radio"
+                aria-checked={r.moteurEssayage === v}
+                aria-selected={r.moteurEssayage === v}
+                className="segment"
+                onClick={() => maj({ moteurEssayage: v })}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          <p className="note">
+            {r.moteurEssayage === "flux"
+              ? "FLUX.2 (Black Forest Labs) par le mode synchronisé : environ 3 centimes la photo, clé à poser dans Supabase."
+              : "Leffa pose tes pièces une à une sur ta photo en pied. La 3D (TRELLIS.2) passe toujours par Hugging Face."}
+          </p>
+          <label className="champ-groupe">
+            <span>Jeton Hugging Face</span>
+            <input
+              className="champ"
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="hf_…"
+              value={r.jetonHF}
+              onChange={(e) => maj({ jetonHF: e.target.value.trim() })}
+            />
+          </label>
+          <p className={"etat-ia" + (jetonValide(r.jetonHF) ? " etat-ia--ok" : r.jetonHF ? " etat-ia--ko" : "")} role="status">
+            {jetonValide(r.jetonHF) ? "Jeton prêt" : r.jetonHF ? "Ce jeton ne ressemble pas à un jeton Hugging Face (hf_…)" : "Pas encore de jeton"}
+          </p>
+          <p className="note">
+            Crée un compte gratuit sur Hugging Face, puis un jeton de type « Read » :{" "}
+            <a href={PAGE_JETONS} target="_blank" rel="noreferrer">
+              huggingface.co/settings/tokens
+            </a>
+            . Il reste sur cet appareil. Le compte gratuit donne quelques minutes de GPU par jour : environ une tenue essayée et mise en 3D par jour. Le
+            compte PRO en donne huit fois plus.
+          </p>
+          <p className="note bouclier">
+            <ShieldCheck size={14} aria-hidden /> Pour un essayage, ta photo en pied et les photos des pièces passent par les serveurs de Hugging Face le
+            temps du calcul.
+          </p>
         </section>
 
         <section>

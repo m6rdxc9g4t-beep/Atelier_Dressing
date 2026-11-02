@@ -109,6 +109,10 @@ await en(A, `insert into storage.objects (bucket_id, name) values ('dressing', '
 await assert.rejects(en(A, `insert into storage.objects (bucket_id, name) values ('dressing', '${B}/vol.webp')`), /row-level security/);
 assert.equal((await en(B, "select count(*)::int n from storage.objects"))[0].n, 0);
 assert.equal((await db.query("select public from storage.buckets where id = 'dressing'")).rows[0].public, false);
+const seau = (await db.query("select allowed_mime_types, file_size_limit from storage.buckets where id = 'dressing'")).rows[0];
+assert.ok(seau.allowed_mime_types.includes("model/gltf-binary"));
+assert.equal(Number(seau.file_size_limit), 26214400);
+console.log("✓ bucket : modèles 3D GLB acceptés (25 Mo)");
 console.log("✓ photos : bucket privé, un dossier par compte");
 
 // --- Temps réel
@@ -134,6 +138,8 @@ console.log("✓ relais Claude : demandes privées, prises une seule fois, Mac s
 // --- Essayages
 await en(A, `insert into essayages (pieces, image, moteur) values (array['${jean.id}']::uuid[], 'essai-1.jpg', 'flux-2-pro')`);
 assert.equal((await en(B, "select count(*)::int n from essayages"))[0].n, 0);
+await en(A, "update essayages set modele_3d = 'essai-1.glb'");
+assert.equal((await en(A, "select modele_3d from essayages"))[0].modele_3d, "essai-1.glb");
 await assert.rejects(en(B, `insert into essayages (user_id, image) values ('${A}', 'x.jpg')`), /row-level security/);
 console.log("✓ essayages : privés, un par génération");
 
