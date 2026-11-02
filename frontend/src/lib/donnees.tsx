@@ -274,7 +274,7 @@ export interface Mesure {
 
 const mesures = new Map<string, Mesure>();
 
-function mesurer(img: HTMLImageElement): Mesure {
+export function mesurerImage(img: HTMLImageElement): Mesure {
   const ratio = img.naturalWidth / Math.max(1, img.naturalHeight);
   try {
     const [w, h] = img.naturalWidth >= img.naturalHeight ? [240, Math.max(1, Math.round(240 / ratio))] : [Math.max(1, Math.round(240 * ratio)), 240];
@@ -302,7 +302,7 @@ export function useMesure(url: string | null): Mesure | null {
     let actif = true;
     const img = new Image();
     img.onload = () => {
-      const v = mesurer(img);
+      const v = mesurerImage(img);
       mesures.set(url, v);
       if (actif) setM(v);
     };

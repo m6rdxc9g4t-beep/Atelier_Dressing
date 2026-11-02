@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarCheck,
   Camera,
@@ -29,6 +29,19 @@ import { meteoDuJour, type Meteo } from "../lib/meteo";
 import { nettoyerTenue, proposerTenue } from "../lib/suggestion";
 import { CALAGE_NEUTRE, maintenant, nouvelId, type Calage, type Occasion, type Vetement } from "../lib/types";
 
+// La 3D (three.js) n'est chargée que si on l'affiche
+const Vue3D = lazy(() => import("../components/Vue3D"));
+
+type VueCabine = "3d" | "2d" | "photo";
+const lireVue = (): VueCabine => {
+  try {
+    const v = localStorage.getItem("dressing.vue");
+    return v === "2d" || v === "photo" ? v : "3d";
+  } catch {
+    return "3d";
+  }
+};
+
 const TEMPERATURES = [
   { v: 2, l: "Froid" },
   { v: 10, l: "Frais" },
@@ -53,7 +66,15 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
   const [calages, setCalages] = useState<Record<string, Calage>>({});
   const [sauver, setSauver] = useState(false);
   const [generation, setGeneration] = useState(false);
-  const [vuePhoto, setVuePhoto] = useState(true);
+  const [vue, setVueEtat] = useState<VueCabine>(lireVue);
+  const setVue = (v: VueCabine) => {
+    setVueEtat(v);
+    try {
+      localStorage.setItem("dressing.vue", v);
+    } catch {
+      /* rien */
+    }
+  };
   const minuteurs = useRef<Record<string, number>>({});
 
   const actifs = useMemo(() => vetements.filter((v) => !v.archive), [vetements]);
@@ -66,6 +87,7 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
   // Dernier essayage réaliste de la tenue en cours, s'il existe
   const essai = cabine.pieces.length ? essayages.find((e) => memesPieces(e.pieces, cabine.pieces.filter((id) => parId.get(id)?.categorie !== "autre"))) : undefined;
   const photoEssai = useImage(essai?.image);
+  const vueEffective: VueCabine = ajuster ? "2d" : vue === "photo" && !essai ? "3d" : vue;
 
   async function essayageReel() {
     setGeneration(true);
@@ -73,7 +95,7 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
     try {
       const e = await essayer(depot, profil, portees);
       await enregistrerEssayage(e);
-      setVuePhoto(true);
+      setVue("photo");
       toast("Ta photo est prête, elle est gardée dans Tenues → Photos");
     } catch (e) {
       toast(e instanceof EssayageImpossible ? e.message : "Essayage impossible pour le moment.", { erreur: true });
@@ -247,19 +269,28 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
 
       <div className="cabine">
         <div className="cabine__colonne">
-          {photoEssai && !ajuster && (
+          {!ajuster && (
             <div className="segments cabine__vue" role="radiogroup" aria-label="Affichage">
-              <button role="radio" className="segment" aria-checked={vuePhoto} aria-selected={vuePhoto} onClick={() => setVuePhoto(true)}>
-                Photo réaliste
-              </button>
-              <button role="radio" className="segment" aria-checked={!vuePhoto} aria-selected={!vuePhoto} onClick={() => setVuePhoto(false)}>
-                Mannequin
-              </button>
+              {(
+                [
+                  ["3d", "3D"],
+                  ["2d", "Mannequin 2D"],
+                  ...(photoEssai ? [["photo", "Photo réaliste"]] : []),
+                ] as [VueCabine, string][]
+              ).map(([v, l]) => (
+                <button key={v} role="radio" className="segment" aria-checked={vueEffective === v} aria-selected={vueEffective === v} onClick={() => setVue(v)}>
+                  {l}
+                </button>
+              ))}
             </div>
           )}
-          <div className={"panneau cabine__scene" + (ajuster ? " cabine__scene--ajuster" : "")} aria-busy={generation}>
-            {photoEssai && vuePhoto && !ajuster ? (
+          <div className={"panneau cabine__scene" + (ajuster ? " cabine__scene--ajuster" : "") + (vueEffective === "3d" ? " cabine__scene--3d" : "")} aria-busy={generation}>
+            {vueEffective === "photo" && photoEssai ? (
               <img className="cabine__photo" src={photoEssai} alt={"Toi, portant : " + portees.map((p) => p.nom).join(", ")} />
+            ) : vueEffective === "3d" ? (
+              <Suspense fallback={<div className="vue3d__etat">Chargement de la 3D…</div>}>
+                <Vue3D avatar={profil.avatar} pieces={portees} depot={depot} />
+              </Suspense>
             ) : (
               <Mannequin
                 avatar={profil.avatar}

@@ -58,9 +58,9 @@ export class DepotCloud implements Depot {
   }
 
   async supprimerVetement(id: string) {
-    const { data } = await this.sb.from("vetements").select("image, image_originale").eq("id", id).maybeSingle();
+    const { data } = await this.sb.from("vetements").select("image, image_originale, image_dos").eq("id", id).maybeSingle();
     await this.verifier(this.sb.from("vetements").delete().eq("id", id));
-    const cles = [data?.image, data?.image_originale].filter((c): c is string => !!c);
+    const cles = [data?.image, data?.image_originale, data?.image_dos].filter((c): c is string => !!c);
     if (cles.length) await Promise.all(cles.map((c) => this.supprimerImage(c)));
   }
 

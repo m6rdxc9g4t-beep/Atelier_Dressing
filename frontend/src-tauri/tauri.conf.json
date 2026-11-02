@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://*.supabase.co wss://*.supabase.co https://api.open-meteo.com http://localhost:11434 http://127.0.0.1:11434; img-src 'self' data: blob: https://*.supabase.co; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; worker-src 'self' blob:"
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://*.supabase.co wss://*.supabase.co https://api.open-meteo.com http://localhost:11434 http://127.0.0.1:11434; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; worker-src 'self' blob:"
     }
   },
   "bundle": {

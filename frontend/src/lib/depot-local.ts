@@ -59,6 +59,7 @@ export class DepotLocal implements Depot {
     await effacer(db, "vetements", id);
     if (v?.image) await effacer(db, "images", v.image);
     if (v?.image_originale) await effacer(db, "images", v.image_originale);
+    if (v?.image_dos) await effacer(db, "images", v.image_dos);
     // Comme le déclencheur SQL : la pièce disparaît des tenues
     for (const t of await lireTout<Tenue>(db, "tenues")) {
       if (t.pieces.includes(id)) await ecrire(db, "tenues", t.id, { ...t, pieces: t.pieces.filter((p) => p !== id) });

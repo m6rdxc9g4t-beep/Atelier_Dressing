@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, Heart, LoaderCircle, Pencil, ScanLine, Scissors, Search, Shirt, Trash, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Archive, ArchiveRestore, Heart, Link2, LoaderCircle, Pencil, ScanLine, Scissors, Search, Shirt, Trash, Sparkles } from "lucide-react";
+import { ImportLien } from "../components/ImportLien";
+import { preparerDos } from "../lib/lien";
 import { Curseur, Pastilles, Photo, Vide, Vignette } from "../components/Elements";
 import { FicheVetement } from "../components/FicheVetement";
 import { Feuille } from "../components/Feuille";
@@ -174,6 +176,9 @@ function Detail({ v, onFermer, versCabine }: { v: Vetement | null; onFermer: () 
   const { vetements, profil, compteurs, derniers, depot, enregistrerVetement, supprimerVetement } = useDonnees();
   const [reglages] = useReglages();
   const [ajustage, setAjustage] = useState(false);
+  const [lienDos, setLienDos] = useState(false);
+  const [dosEnCours, setDosEnCours] = useState(false);
+  const fichierDos = useRef<HTMLInputElement>(null);
   const cabine = useCabine();
   const toast = useToast();
   const [mode, setMode] = useState<"fiche" | "modifier" | "photo">("fiche");
@@ -189,6 +194,25 @@ function Detail({ v, onFermer, versCabine }: { v: Vetement | null; onFermer: () 
   if (!v) return <Feuille ouverte={false} titre="" onFermer={onFermer}>{null}</Feuille>;
 
   const nb = compteurs.get(v.id) ?? 0;
+
+  // Photo de dos : la 3D affiche le vrai dos de la pièce
+  async function ajouterDos(source: Blob) {
+    if (!v) return;
+    setDosEnCours(true);
+    try {
+      const dos = await preparerDos(source);
+      const cle = `${v.id}-dos-${Date.now().toString(36)}.${dos.type === "image/webp" ? "webp" : dos.type === "image/jpeg" ? "jpg" : "png"}`;
+      await depot.ecrireImage(cle, dos);
+      const ancienne = v.image_dos;
+      await enregistrerVetement({ ...v, image_dos: cle });
+      if (ancienne) depot.supprimerImage(ancienne).catch(() => {});
+      toast("Photo de dos ajoutée : la 3D montre le vrai dos");
+    } catch (e) {
+      toast(messageErreur(e), { erreur: true });
+    } finally {
+      setDosEnCours(false);
+    }
+  }
 
   // Demande à l'IA où sont les épaules / la ceinture sur la photo, pour bien l'ajuster sur toi
   async function reajuster() {
@@ -270,6 +294,29 @@ function Detail({ v, onFermer, versCabine }: { v: Vetement | null; onFermer: () 
               <Mannequin avatar={profil.avatar} pieces={[v]} petit libelle={`${v.nom} sur ton mannequin`} />
             </div>
           </div>
+          <div className="detail__dos">
+            {v.image_dos ? <Photo cle={v.image_dos} alt="Dos de la pièce" damier /> : null}
+            <span className="note">
+              {v.image_dos ? "Photo de dos : la 3D montre le vrai dos." : "Sans photo de dos, la 3D imagine le dos à partir de la face."}
+            </span>
+            <input ref={fichierDos} type="file" accept="image/*" hidden onChange={(e) => (e.target.files?.[0] && ajouterDos(e.target.files[0]), (e.target.value = ""))} />
+            <button className="bouton bouton--discret" onClick={() => fichierDos.current?.click()} disabled={dosEnCours}>
+              {dosEnCours ? <LoaderCircle className="tourne" size={16} aria-hidden /> : null}
+              {v.image_dos ? "Changer" : "Photo de dos"}
+            </button>
+            <button className="bouton bouton--discret" onClick={() => setLienDos(true)} disabled={dosEnCours}>
+              <Link2 size={16} aria-hidden /> Lien
+            </button>
+          </div>
+          <ImportLien
+            ouverte={lienDos}
+            roles={["dos"]}
+            onFermer={() => setLienDos(false)}
+            onImporter={({ dos }) => {
+              setLienDos(false);
+              if (dos) ajouterDos(dos);
+            }}
+          />
           <dl className="detail__infos">
             <div>
               <dt>Catégorie</dt>

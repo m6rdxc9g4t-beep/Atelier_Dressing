@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from "react";
-import { Camera, CircleAlert, ImagePlus, LoaderCircle, ScanLine, Sparkles, Wand2 } from "lucide-react";
+import { Camera, CircleAlert, ImagePlus, Link2, LoaderCircle, ScanLine, Sparkles, Wand2 } from "lucide-react";
+import { ImportLien } from "../components/ImportLien";
+import { preparerDos } from "../lib/lien";
 import { FicheVetement } from "../components/FicheVetement";
 import { Mannequin } from "../components/Mannequin";
 import { Segments, Curseur } from "../components/Elements";
@@ -14,7 +16,10 @@ import { messageErreur } from "../lib/supabase";
 import { nouveauVetement, type Vetement } from "../lib/types";
 
 interface Brouillon {
-  fichier: File;
+  fichier: Blob;
+  /** Photo de dos (3D), détourée à l'enregistrement. */
+  dos?: Blob;
+  urlDos?: string;
   original: Blob;
   urlOriginal: string;
   pixels: Pixels;
@@ -74,6 +79,8 @@ export function Scanner({ versDressing }: { versDressing: () => void }) {
   const [survol, setSurvol] = useState(false);
   const photo = useRef<HTMLInputElement>(null);
   const galerie = useRef<HTMLInputElement>(null);
+  const dosRef = useRef<HTMLInputElement>(null);
+  const [lien, setLien] = useState(false);
   const jeton = useRef(0);
   const ajoutees = useRef(0);
 
@@ -108,7 +115,7 @@ export function Scanner({ versDressing }: { versDressing: () => void }) {
     }
   }
 
-  async function preparer(fichier: File) {
+  async function preparer(fichier: Blob, dos?: Blob) {
     setPreparation(true);
     setVue("detouree");
     try {
@@ -132,6 +139,8 @@ export function Scanner({ versDressing }: { versDressing: () => void }) {
         garderEntiere: !resultat.fiable,
         vetement,
         modifie: false,
+        dos,
+        urlDos: dos ? URL.createObjectURL(dos) : undefined,
       };
       setBrouillon(b);
       lancerIA(b);
@@ -184,10 +193,17 @@ export function Scanner({ versDressing }: { versDressing: () => void }) {
       const cleOriginale = `${v.id}-orig.jpg`;
       await depot.ecrireImage(cleImage, image);
       await depot.ecrireImage(cleOriginale, brouillon.original);
+      let image_dos: string | null = null;
+      if (brouillon.dos) {
+        const dos = await preparerDos(brouillon.dos);
+        image_dos = `${v.id}-dos.${dos.type === "image/webp" ? "webp" : dos.type === "image/jpeg" ? "jpg" : "png"}`;
+        await depot.ecrireImage(image_dos, dos);
+      }
       await enregistrerVetement({
         ...v,
         image: cleImage,
         image_originale: cleOriginale,
+        image_dos,
       });
       ajoutees.current++;
       if (file.length) toast(`« ${v.nom} » ajoutée. Pièce suivante…`);
@@ -213,6 +229,28 @@ export function Scanner({ versDressing }: { versDressing: () => void }) {
     <>
       <input ref={photo} type="file" accept="image/*" capture="environment" hidden onChange={(e) => (ajouterFichiers(e.target.files), (e.target.value = ""))} />
       <input ref={galerie} type="file" accept="image/*" multiple hidden onChange={(e) => (ajouterFichiers(e.target.files), (e.target.value = ""))} />
+      <input
+        ref={dosRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) setBrouillon((x) => (x ? { ...x, dos: f, urlDos: URL.createObjectURL(f) } : x));
+          e.target.value = "";
+        }}
+      />
+      <ImportLien
+        ouverte={lien}
+        onFermer={() => setLien(false)}
+        onImporter={({ face, dos }) => {
+          setLien(false);
+          if (face) {
+            ajoutees.current = 0;
+            preparer(face, dos);
+          }
+        }}
+      />
     </>
   );
 
@@ -248,6 +286,9 @@ export function Scanner({ versDressing }: { versDressing: () => void }) {
                 </button>
                 <button className="bouton bouton--discret bouton--grand" onClick={() => galerie.current?.click()}>
                   <ImagePlus size={20} aria-hidden /> Importer des photos
+                </button>
+                <button className="bouton bouton--discret bouton--grand" onClick={() => setLien(true)}>
+                  <Link2 size={20} aria-hidden /> Depuis un lien de boutique
                 </button>
               </div>
               <p className="note scanner__glisser">Sur Mac, tu peux aussi glisser tes photos ici, plusieurs à la fois.</p>
@@ -321,6 +362,17 @@ export function Scanner({ versDressing }: { versDressing: () => void }) {
                 onChange={(t) => redetourer(t)}
               />
             )}
+            <div className="detail__dos">
+              {b.urlDos ? (
+                <div className="photo">
+                  <img src={b.urlDos} alt="Photo de dos" />
+                </div>
+              ) : null}
+              <span className="note">{b.dos ? "Photo de dos ajoutée : la 3D aura le vrai dos." : "Pour la 3D, ajoute aussi la photo de dos."}</span>
+              <button className="bouton bouton--discret" onClick={() => dosRef.current?.click()}>
+                {b.dos ? "Changer" : "Photo de dos"}
+              </button>
+            </div>
             <label className="case-ligne">
               <input
                 type="checkbox"

@@ -75,6 +75,7 @@ export interface Vetement {
   archive: boolean;
   image: string | null; // clé de la photo détourée (PNG transparent)
   image_originale: string | null; // clé de la photo d'origine
+  image_dos: string | null; // clé de la photo de dos détourée (3D)
   calage: Calage;
   ajustement: Ajustement | null;
   cree_le: string;
@@ -194,6 +195,7 @@ export function nouveauVetement(partiel: Partial<Vetement> = {}): Vetement {
     archive: false,
     image: null,
     image_originale: null,
+    image_dos: null,
     calage: { ...CALAGE_NEUTRE },
     ajustement: null,
     cree_le: t,

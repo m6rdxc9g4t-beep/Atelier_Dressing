@@ -8,9 +8,9 @@ Ton dressing en photos et un mannequin qui te ressemble. Tu photographies chaque
 
 | Onglet | |
 |---|---|
-| **Cabine** | Ton mannequin, habillé des photos détourées de **tes** pièces, posées à l'échelle réelle (épaules du vêtement sur tes épaules, ceinture sur ta taille). **Essayage réaliste** : une vraie photo de toi qui porte ces pièces, générée à partir de ta photo en pied (voir plus bas). Touche une pièce sur le portant pour l'enfiler (une robe remplace le haut et le bas). **Proposer une tenue** : le styliste IA compose jusqu'à 3 tenues selon la météo du jour, l'occasion (travail, soirée, sport…) et ce que tu n'as pas porté depuis longtemps. **Au hasard** fait un tirage instantané sans IA. **Ajuster** : fais glisser une pièce sur le mannequin (molette ou curseur pour la taille) ; le réglage est gardé pour toutes tes tenues. **Enregistrer la tenue**, **Je la porte aujourd'hui**. |
-| **Dressing** | Toutes tes pièces, détourées, par catégorie (hauts, bas, robes, vestes, chaussures, sacs, chapeaux, lunettes, écharpes, bijoux, ceintures). Recherche (« lin », « bleu marine », une marque), filtres saison / favoris / archivées, tri par pièces les moins portées. La fiche montre la pièce sur ton mannequin, combien de fois tu l'as portée et son **coût par port**. Retouche du détourage à partir de la photo d'origine. |
-| **Scanner** | **Prendre une photo** (appareil de l'iPhone) ou **importer plusieurs photos** d'un coup (glisser-déposer sur Mac). Détourage automatique sur l'appareil, réglable (tolérance du fond, ou photo entière). L'IA remplit la fiche pendant ce temps ; tu vérifies, l'aperçu sur ton mannequin se met à jour, puis **Ajouter au dressing**. |
+| **Cabine** | Ton mannequin **en 3D**, habillé de **tes** pièces : il est *dans* les vêtements, et tu le fais tourner au doigt (Face, Profil, Dos, rotation automatique). Les pièces sont posées à l'échelle réelle (épaules du vêtement sur tes épaules, ceinture sur ta taille). Vues **3D**, **2D** (collage à plat) et **Photo** (essayage réaliste). **Essayage réaliste** : une vraie photo de toi qui porte ces pièces, générée à partir de ta photo en pied (voir plus bas). Touche une pièce sur le portant pour l'enfiler (une robe remplace le haut et le bas). **Proposer une tenue** : le styliste IA compose jusqu'à 3 tenues selon la météo du jour, l'occasion (travail, soirée, sport…) et ce que tu n'as pas porté depuis longtemps. **Au hasard** fait un tirage instantané sans IA. **Ajuster** : fais glisser une pièce sur le mannequin (molette ou curseur pour la taille) ; le réglage est gardé pour toutes tes tenues. **Enregistrer la tenue**, **Je la porte aujourd'hui**. |
+| **Dressing** | Toutes tes pièces, détourées, par catégorie (hauts, bas, robes, vestes, chaussures, sacs, chapeaux, lunettes, écharpes, bijoux, ceintures). Recherche (« lin », « bleu marine », une marque), filtres saison / favoris / archivées, tri par pièces les moins portées. La fiche montre la pièce sur ton mannequin, combien de fois tu l'as portée et son **coût par port**. Retouche du détourage à partir de la photo d'origine. **Photo de dos** : ajoute-la (fichier ou lien de boutique) pour que la 3D montre le vrai dos. |
+| **Scanner** | **Prendre une photo** (appareil de l'iPhone) ou **importer plusieurs photos** d'un coup (glisser-déposer sur Mac), ou **Depuis un lien de boutique** : colle l'adresse de la fiche produit, choisis la photo de face et celle de dos. Détourage automatique sur l'appareil, réglable (tolérance du fond, ou photo entière). L'IA remplit la fiche pendant ce temps ; tu vérifies, l'aperçu sur ton mannequin se met à jour, puis **Ajouter au dressing**. |
 | **Tenues** | Tes tenues enregistrées (avec leur photo réaliste si tu l'as faite), tes **photos d'essayage**, le **journal** de ce que tu as porté, et un **bilan** : pièces portées ces 90 derniers jours, valeur du dressing, coût moyen par port, pièces à ressortir du placard, pièces préférées. |
 | **Moi** | **Ta photo en pied** (pour l'essayage réaliste) et le mannequin qui te ressemble : silhouette (féminine, neutre, masculine), taille, épaules, poitrine, tour de taille, hanches, longueur des jambes, carnation, cheveux, et ta photo dans l'ovale du visage. **Créer à partir d'une photo** : l'IA estime tout ça sur une photo de toi en pied (la photo n'est pas gardée). |
 
@@ -55,6 +55,12 @@ Sans aucune IA, tout reste utilisable : le détourage et les couleurs se font su
 
 À la reconnaissance, l'IA pose aussi des **repères** sur la photo de la pièce : coutures d'épaules (hauts, vestes, robes), ceinture et ourlet (bas). L'app cale ces points sur les épaules et la taille de ton mannequin, puis fait tomber le bas à sa longueur. Sans repères (Ollama, ou repères peu plausibles), l'app les mesure elle-même sur la photo détourée (ligne d'épaules, buste, ceinture). Dans la fiche d'une pièce, **Réajuster sur moi** redemande les repères à l'IA ; en Cabine, **Ajuster** permet de corriger au doigt.
 
+### La 3D
+
+La vue 3D reconstruit un volume à partir des photos : ton corps (à tes mesures) est gonflé en coupes elliptiques, chaque pièce devient une enveloppe un peu plus large que ce qu'elle recouvre (corps et couches du dessous), avec ses côtés fermés, puis la photo de face est plaquée devant et la **photo de dos** derrière. Sans photo de dos, le dos est imaginé à partir de la face (en miroir, assombri) et la Cabine le signale. Ce n'est pas une simulation de tissu : les plis et la tombée sont ceux des photos. Les lunettes et bijoux restent à plat sur la face.
+
+Pour les meilleures photos, le plus simple est la fiche produit de la boutique (photos sur fond uni, de face et de dos) : **Scanner → Depuis un lien de boutique**, ou dans la fiche d'une pièce, **Photo de dos → Depuis un lien**. La fonction Edge `importer-lien` lit la page et rapporte ses photos ; certaines boutiques bloquent cette lecture : enregistre alors les deux photos et importe-les comme fichiers.
+
 ## Essayage réaliste : toi, avec tes vrais vêtements
 
 Le mannequin est un **collage** instantané et hors ligne : les photos détourées de tes pièces sur une silhouette à tes proportions. Pour te voir **vraiment** habillé, la Cabine a un bouton **Essayage réaliste** :
@@ -98,7 +104,7 @@ L'app web est hébergée sur Vercel (équipe FiKozZ, projet `atelier-dressing`, 
 │  iPhone   ── PWA Vercel       ├──┼──▶│    ports (journal), profils (mannequin)  │
 │  Navigateur                   ├──┘   │  Storage : bucket privé « dressing »     │
 │                               │      │  Auth · Realtime (synchro Mac ↔ iPhone)  │
-│  Détourage, couleurs,         │      │  ia_demandes / ia_relais (relais Claude) │
+│  Détourage, couleurs, 3D,     │      │  ia_demandes / ia_relais (relais Claude) │
 │  mannequin : sur l'appareil   │      │                                          │
 │  Mode local : IndexedDB       │      └──────────────────────────────────────────┘
 │  IA : Ollama (Mac) ───────────┼──▶ http://localhost:11434
@@ -110,8 +116,8 @@ design/  charte néon champagne, icône, captures
 
 | Dossier | Contenu |
 |---|---|
-| [`frontend/`](frontend/) | React 19 + TypeScript + Vite. PWA (service worker, manifeste). `src-tauri/` enveloppe le même code en app Mac native. La logique testée est dans `src/lib/` : détourage, géométrie du mannequin, suggestions de tenues, couleurs, normalisation des réponses de l'IA, dépôt local. |
-| [`backend/`](backend/) | Migrations SQL, fonction Edge `essayage`, tests des migrations sur PGlite. Voir [backend/README.md](backend/README.md). |
+| [`frontend/`](frontend/) | React 19 + TypeScript + Vite. PWA (service worker, manifeste). `src-tauri/` enveloppe le même code en app Mac native. La logique testée est dans `src/lib/` : détourage, géométrie du mannequin, volumes 3D (`volume.ts`, rendu three.js dans `components/Vue3D.tsx`), suggestions de tenues, couleurs, normalisation des réponses de l'IA, dépôt local. |
+| [`backend/`](backend/) | Migrations SQL, fonctions Edge `essayage` et `importer-lien`, tests des migrations sur PGlite. Voir [backend/README.md](backend/README.md). |
 | [`design/`](design/) | Charte, icône, captures. Voir [design/DESIGN.md](design/DESIGN.md). |
 
 ## Développer

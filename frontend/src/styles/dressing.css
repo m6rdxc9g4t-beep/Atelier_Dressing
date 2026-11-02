@@ -1326,3 +1326,139 @@
   gap: var(--s-2);
   min-width: 0;
 }
+
+/* ------------------------------------------------------------------ 3D */
+
+.cabine__scene--3d {
+  padding: 0;
+  overflow: hidden;
+}
+
+.vue3d {
+  position: relative;
+  width: 100%;
+  height: min(74dvh, 700px);
+  min-height: 420px;
+}
+
+.vue3d__toile {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.vue3d__toile:active {
+  cursor: grabbing;
+}
+
+.vue3d__toile canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.vue3d__etat {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  color: var(--signature-texte);
+  font-weight: 750;
+  pointer-events: none;
+}
+
+.vue3d__commandes {
+  position: absolute;
+  left: var(--s-3);
+  right: var(--s-3);
+  bottom: var(--s-3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.vue3d__commandes .segments {
+  background: color-mix(in oklab, var(--verre-plein) 88%, transparent);
+}
+
+.vue3d__commandes .bouton-icone {
+  background: color-mix(in oklab, var(--verre-plein) 88%, transparent);
+  box-shadow: inset 0 0 0 1px var(--trait);
+}
+
+.vue3d__note {
+  position: absolute;
+  top: var(--s-3);
+  left: var(--s-3);
+  right: var(--s-3);
+  font-size: var(--t-xs);
+  color: var(--encre-2);
+  text-align: center;
+}
+
+/* Import depuis un lien de boutique */
+.import-lien {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.import-lien__form {
+  display: flex;
+  gap: var(--s-2);
+}
+
+.import-lien__grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: var(--s-2);
+}
+
+.import-lien__photo {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  padding: 0;
+  border-radius: var(--r-champ);
+  overflow: hidden;
+  border: 1px solid var(--trait);
+  background: #f4f4f2;
+  cursor: pointer;
+}
+
+.import-lien__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.import-lien__photo[aria-pressed="true"] {
+  border-color: var(--signature);
+  box-shadow: 0 0 0 2px var(--signature), 0 0 16px -4px var(--signature-halo);
+}
+
+.import-lien__role {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 10px;
+  border-radius: var(--r-pastille);
+  background: var(--signature);
+  color: var(--signature-encre);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.detail__dos {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.detail__dos .photo {
+  width: 72px;
+  flex: none;
+}

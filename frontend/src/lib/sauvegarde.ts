@@ -16,7 +16,7 @@ interface Fichier {
 
 export async function exporter(depot: Depot, g: Garderobe, progression?: (fait: number, total: number) => void): Promise<Blob> {
   const cles = [
-    ...g.vetements.flatMap((v) => [v.image, v.image_originale]),
+    ...g.vetements.flatMap((v) => [v.image, v.image_originale, v.image_dos]),
     ...g.essayages.map((e) => e.image),
     g.profil.avatar.visage,
     g.profil.avatar.photo_pied,
