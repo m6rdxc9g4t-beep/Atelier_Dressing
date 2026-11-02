@@ -1,0 +1,132 @@
+/*
+ * atelier_Dressing — jetons de design
+ * Source de vérité, documentée dans design/DESIGN.md.
+ *
+ * Charte « néon monochrome » de la suite Atelier (v2) : toute l'app est dans sa
+ * couleur signature, ici un champagne (soie, couture, étiquette dorée). Fond,
+ * barre latérale, verre, traits, textes secondaires et halos en dérivent par
+ * mélange et transparence, en néon (sombre) comme en clair.
+ *
+ * Les jetons --atelier-* viennent de atelier-brand/atelier-brand.css (copie exacte
+ * du fichier de la suite, importée avant ce fichier dans main.tsx), activé par
+ * data-atelier-app="dressing" sur <html>. Le kit ne connaît pas encore Dressing :
+ * la signature est posée ici, avant que le kit n'en dérive le reste.
+ *
+ * Seules les couleurs qui portent un sens restent à part : états (ok / attention /
+ * alerte) et les pastilles de couleur des vêtements, qui montrent la vraie couleur.
+ */
+@import "@fontsource-variable/nunito/wght.css";
+
+/* Signature d'atelier_Dressing : champagne. Clair et lumineux en néon pour garder
+   la lueur, doré soutenu en clair pour le contraste (texte #0B0B0F posé dessus :
+   4,8:1 en clair, 12:1 en sombre). */
+:root[data-atelier-app="dressing"] {
+  --atelier-signature: #9c7643;
+  --atelier-signature-contrast: #0b0b0f;
+}
+:root[data-atelier-app="dressing"][data-theme="dark"],
+:root[data-atelier-app="dressing"].dark {
+  --atelier-signature: #e6c79c;
+}
+
+:root {
+  /* Structure — branchée sur le kit : les valeurs suivent le thème toutes seules */
+  --nuit: var(--atelier-bg);
+  --nuit-2: var(--atelier-sidebar);
+  --verre: color-mix(in oklab, var(--atelier-surface) 86%, transparent);
+  --verre-plein: var(--atelier-surface);
+  --verre-haut: color-mix(in oklab, var(--atelier-signature) 7%, transparent);
+  --survol: var(--atelier-surface-2);
+  --selection: var(--atelier-surface-3);
+  --champ-fond: var(--atelier-field);
+  --contour: var(--atelier-border);
+  --trait: var(--atelier-border-soft);
+  --ligne: var(--atelier-line);
+  --reflet: var(--atelier-text);
+  --signature: var(--atelier-signature);
+  --signature-encre: var(--atelier-signature-contrast);
+  --signature-texte: var(--atelier-ink);
+  --signature-douce: var(--atelier-signature-soft);
+  --signature-legere: var(--atelier-signature-faint);
+  --signature-halo: color-mix(in oklab, var(--atelier-signature) 45%, transparent);
+
+  /* États — ne prennent jamais la signature */
+  --frais: #3ddc97;     /* ok : Ollama répond, détourage réussi */
+  --bientot: #ffb347;   /* attention : pièce oubliée depuis longtemps */
+  --urgent: #ff5c6c;    /* alerte, suppression */
+  --boite: #78b4ff;     /* information */
+
+  /* Rôles (noms communs à la suite, utilisés par app.css et neon.css) */
+  --bg: var(--nuit);
+  --bg-creux: var(--nuit-2);
+  --surface: var(--verre-plein);
+  --encre: var(--reflet);
+  --encre-2: var(--atelier-muted);
+  --encre-3: color-mix(in oklab, var(--atelier-muted) 82%, var(--atelier-bg));
+  --action: var(--signature);
+  --action-encre: var(--signature-encre);
+  --focus: var(--signature);
+  --basilic: var(--frais);
+  --basilic-pale: rgba(61, 220, 151, 0.16);
+  --moutarde: var(--bientot);
+  --moutarde-vif: var(--bientot);
+  --moutarde-pale: rgba(255, 179, 71, 0.14);
+  --tomate: var(--urgent);
+  --tomate-pale: rgba(255, 92, 108, 0.15);
+  --lavande: var(--signature-douce);
+  --lavande-encre: var(--signature-texte);
+
+  /* Lumière */
+  --halo: var(--atelier-glow);
+  --halo-fort: var(--atelier-glow-strong);
+  --glow-signature: var(--atelier-signature-glow);
+  --texte-neon: var(--atelier-text-glow);
+  --voile: rgb(4 4 6 / 0.62);
+
+  /* Damier sous les photos détourées (montre la transparence) */
+  --damier-a: color-mix(in oklab, var(--atelier-surface) 92%, var(--atelier-text));
+  --damier-b: var(--atelier-surface);
+
+  /* Typographie : Nunito, sans-serif arrondie de la charte */
+  --font: "Nunito Variable", "SF Pro Rounded", ui-rounded, system-ui, sans-serif;
+  --t-xs: 0.8125rem;
+  --t-sm: 0.9375rem;
+  --t-md: 1.0625rem;
+  --t-lg: 1.375rem;
+  --t-xl: 2rem;
+  --t-xxl: 3.25rem;
+
+  /* Espacements (grille de 4) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+
+  /* Rayons hiérarchiques */
+  --r-pastille: 999px;
+  --r-tuile: 22px;
+  --r-groupe: 16px;
+  --r-champ: 12px;
+
+  --ombre-feuille: var(--atelier-glow-strong);
+  --duree: 180ms;
+
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --frais: #12804f;
+  --bientot: #a85f00;
+  --urgent: #cc2b3b;
+  --boite: #2f6fd6;
+  --basilic-pale: rgba(18, 128, 79, 0.12);
+  --moutarde-pale: rgba(168, 95, 0, 0.12);
+  --tomate-pale: rgba(204, 43, 59, 0.1);
+  --encre-3: color-mix(in oklab, var(--atelier-muted) 94%, var(--atelier-bg));
+  --voile: color-mix(in oklab, var(--atelier-text) 32%, transparent);
+  --damier-a: color-mix(in oklab, var(--atelier-bg) 70%, var(--atelier-text) 6%);
+  color-scheme: light;
+}

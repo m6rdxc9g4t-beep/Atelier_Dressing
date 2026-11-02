@@ -1,0 +1,83 @@
+name: App Mac
+
+# Compile l'app Mac (Intel + Apple Silicon) à chaque modification du frontend,
+# et publie le .dmg dans la release GitHub « Atelier Dressing pour Mac ».
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/app-mac.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: app-mac
+  cancel-in-progress: true
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: frontend/src-tauri -> target
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Compiler l'app
+        env:
+          # Variables du dépôt (Settings → Secrets and variables → Actions → Variables)
+          VITE_APP_URL: ${{ vars.APP_URL }}
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        run: npx tauri build --target universal-apple-darwin
+
+      - name: Préparer les fichiers
+        id: fichiers
+        run: |
+          BUNDLE=src-tauri/target/universal-apple-darwin/release/bundle
+          mkdir -p ../livraison
+          cp "$BUNDLE"/dmg/*.dmg ../livraison/Atelier-Dressing.dmg
+          ditto -c -k --keepParent "$BUNDLE/macos/Atelier Dressing.app" ../livraison/Atelier-Dressing-app.zip
+          # Archive tar : garde les droits d'exécution et la signature, pour une installation directe
+          COPYFILE_DISABLE=1 tar -czf ../livraison/Atelier-Dressing-app.tar.gz -C "$BUNDLE/macos" "Atelier Dressing.app"
+          ls -la ../livraison
+
+      - name: Garder les fichiers dans le run
+        uses: actions/upload-artifact@v4
+        with:
+          name: Atelier-Dressing-Mac
+          path: livraison/*
+
+      - name: Publier dans la release
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=mac-latest
+          NOTES="App Mac compilée depuis ${GITHUB_SHA::7}. Télécharge Atelier-Dressing.dmg, ouvre-le et glisse l'app dans Applications. Au premier lancement : clic droit sur l'app, puis Ouvrir."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes "$NOTES" --target "$GITHUB_SHA"
+          else
+            gh release create "$TAG" --title "Atelier Dressing pour Mac" --notes "$NOTES" --target "$GITHUB_SHA"
+          fi
+          gh release upload "$TAG" livraison/* --clobber

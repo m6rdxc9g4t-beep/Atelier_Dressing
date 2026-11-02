@@ -1,0 +1,614 @@
+/*
+ * atelier_Dressing — couche « néon monochrome » (chargée après app.css)
+ * Reprise de la couche commune d'atelier_Cuisine (matières, navigation, boutons,
+ * champs, feuilles, listes), branchée sur la signature champagne de tokens.css :
+ *  1. le verre : panneaux translucides cerclés d'un trait champagne, halo, reflet en haut ;
+ *  2. le néon : l'action principale et le contour du mannequin brillent en champagne ;
+ *  3. le fond : quasi noir (ou très clair) teinté de champagne, fine grille et lueur.
+ * Les composants propres au dressing sont dans dressing.css.
+ */
+
+/* ------------------------------------------------------------ Matières */
+
+body {
+  /* Raccourci obligatoire : --atelier-backdrop contient des tailles de motif */
+  background: var(--atelier-backdrop), var(--atelier-bg);
+  background-attachment: fixed;
+  font-feature-settings: "tnum" 0;
+  font-weight: 450;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 800;
+}
+
+.panneau,
+.liste,
+.idee,
+.tuile,
+.creneau,
+.feuille__corps,
+.jour-carte,
+.ticket,
+.budget {
+  background:
+    linear-gradient(180deg, var(--verre-haut), transparent 38px),
+    var(--verre);
+  border: 1px solid var(--contour);
+  box-shadow: var(--halo);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.liste {
+  border-radius: var(--r-groupe);
+}
+
+.panneau {
+  border-radius: var(--r-groupe);
+  padding: var(--s-4);
+}
+
+:focus-visible {
+  outline: 2px solid var(--signature);
+  outline-offset: 2px;
+  box-shadow: var(--atelier-focus);
+}
+
+.ecran__tete h1 {
+  font-weight: 850;
+  text-shadow: var(--texte-neon);
+  letter-spacing: -0.02em;
+  font-stretch: normal;
+}
+
+.ecran__sous-titre {
+  color: var(--encre-2);
+}
+
+.section-titre {
+  margin: var(--s-2) 0 var(--s-3) var(--s-1);
+  font-size: var(--t-lg);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.groupe__titre {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  color: var(--signature-texte);
+  font-weight: 750;
+}
+
+.groupe__total {
+  margin-left: auto;
+  color: var(--encre);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------ Navigation */
+
+.navigation {
+  background:
+    linear-gradient(180deg, var(--verre-haut), transparent 30px),
+    color-mix(in oklab, var(--nuit-2) 88%, transparent);
+  border-top: 1px solid var(--trait);
+  box-shadow: 0 -8px 30px -12px var(--signature-halo);
+}
+
+.navigation__liste {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.onglet {
+  min-height: 52px;
+  color: var(--encre-2);
+  font-weight: 650;
+}
+
+.onglet svg {
+  color: var(--encre-2);
+  transition: color var(--duree), filter var(--duree);
+}
+
+.onglet[aria-current="page"] {
+  color: var(--encre);
+  font-weight: 800;
+}
+
+.onglet[aria-current="page"] svg {
+  color: var(--signature-texte);
+  filter: drop-shadow(0 0 6px var(--signature-halo));
+}
+
+/* iPhone : trait lumineux au-dessus de l'onglet actif */
+.onglet[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 28%;
+  right: 28%;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--signature);
+  box-shadow: 0 0 10px var(--signature-halo);
+}
+
+.onglet__compte {
+  background: var(--signature);
+  color: var(--signature-encre);
+}
+
+.onglet__compte--alerte {
+  background: var(--urgent);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(255, 92, 108, 0.5);
+}
+
+.marque {
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--contour), 0 0 16px -4px var(--signature-halo);
+}
+
+/* Marque commune de la suite (.atelier-brand du kit) : seule la taille du nom change */
+.navigation__marque .atelier-brand__name {
+  font-size: 1.1875rem;
+}
+
+@media (min-width: 860px) {
+  .navigation {
+    /* app.css déclare « inset: auto » après « top: 0 », ce qui empêchait la barre de rester en place */
+    top: 0;
+    align-self: start;
+    background: var(--nuit-2);
+    border-top: 0;
+    border-right: 1px solid var(--trait);
+    box-shadow: 8px 0 40px -24px var(--signature-halo);
+  }
+
+  .navigation__marque {
+    font-stretch: normal;
+  }
+
+  .onglet[aria-current="page"]::before {
+    top: 22%;
+    bottom: 22%;
+    left: 0;
+    right: auto;
+    width: 3px;
+    height: auto;
+    border-radius: 0 3px 3px 0;
+  }
+
+  .onglet:hover {
+    background: var(--signature-legere);
+  }
+
+  /* Équivalent de .atelier-nav-active : barre à gauche, fond en transparence, halo */
+  .onglet[aria-current="page"] {
+    background: var(--signature-douce);
+    box-shadow: inset 0 0 0 1px var(--trait), 0 0 14px -4px var(--signature);
+  }
+}
+
+/* --------------------------------------------------------------- Boutons */
+
+/* Action principale = .atelier-btn-primary du kit : pleine en clair, contour néon en sombre */
+.bouton--action {
+  background: var(--signature);
+  color: var(--signature-encre);
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px var(--signature), var(--glow-signature);
+}
+
+.bouton--action:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--signature) 88%, var(--encre));
+  box-shadow: inset 0 0 0 1px var(--signature), 0 0 24px -2px var(--signature);
+}
+
+:root[data-theme="dark"] .bouton--action {
+  background: var(--signature-douce);
+  color: var(--signature-texte);
+}
+
+:root[data-theme="dark"] .bouton--action:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--signature) 28%, transparent);
+}
+
+.bouton--discret {
+  color: var(--encre);
+  background: var(--signature-legere);
+  box-shadow: inset 0 0 0 1px var(--trait);
+}
+
+.bouton--discret:hover:not(:disabled) {
+  background: var(--survol);
+  box-shadow: inset 0 0 0 1px var(--contour), 0 0 16px -6px var(--signature-halo);
+}
+
+.bouton--discret svg,
+.bouton-icone svg {
+  color: var(--signature-texte);
+}
+
+.bouton-icone {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.bouton-icone:hover:not(:disabled) {
+  background: var(--signature-douce);
+}
+
+.lien {
+  color: var(--signature-texte);
+}
+
+/* --------------------------------------------------------- Formulaires */
+
+.champ {
+  background-color: var(--champ-fond);
+  border-color: var(--trait);
+  color: var(--encre);
+}
+
+.champ::placeholder {
+  color: var(--encre-3);
+}
+
+.champ:focus {
+  border-color: var(--signature);
+  box-shadow: var(--atelier-focus), 0 0 18px -6px var(--signature-halo);
+  outline: none;
+}
+
+.champ--mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: var(--t-sm);
+}
+
+input[type="checkbox"] {
+  accent-color: var(--signature);
+  width: 20px;
+  height: 20px;
+}
+
+.puce {
+  background: var(--signature-legere);
+  border-color: var(--trait);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+}
+
+.puce svg {
+  color: var(--signature-texte);
+}
+
+.puce[aria-pressed="true"] {
+  background: var(--signature-douce);
+  border-color: var(--signature);
+  color: var(--encre);
+  box-shadow: 0 0 14px -4px var(--signature-halo);
+}
+
+.puce[aria-pressed="true"] svg {
+  color: var(--signature-texte);
+}
+
+.segments {
+  background: var(--champ-fond);
+  box-shadow: inset 0 0 0 1px var(--trait);
+  gap: 2px;
+  margin-bottom: var(--s-2);
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+}
+
+.segment[aria-selected="true"] {
+  background: var(--signature-douce);
+  color: var(--encre);
+  box-shadow: inset 0 0 0 1px var(--contour), 0 0 16px -6px var(--signature-halo);
+}
+
+.case {
+  border-color: var(--trait);
+  min-width: 28px;
+  min-height: 28px;
+}
+
+.case[aria-checked="true"] {
+  background: var(--signature);
+  border-color: var(--signature);
+  color: var(--signature-encre);
+  box-shadow: 0 0 12px -2px var(--signature-halo);
+}
+
+/* Interrupteur (mode magasin, mise en boîte) */
+.bascule {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 44px;
+  padding: 0 var(--s-3);
+  border-radius: var(--r-champ);
+  background: var(--signature-legere);
+  box-shadow: inset 0 0 0 1px var(--trait);
+  font-weight: 650;
+  font-size: var(--t-sm);
+}
+
+.bascule svg {
+  color: var(--signature-texte);
+}
+
+.bascule__piste {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  margin-left: var(--s-2);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--encre-3) 40%, transparent);
+  transition: background var(--duree);
+}
+
+.bascule__curseur {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--encre);
+  transition: transform var(--duree);
+}
+
+.bascule--actif .bascule__piste {
+  background: var(--signature);
+  box-shadow: 0 0 12px -2px var(--signature-halo);
+}
+
+.bascule--actif .bascule__curseur {
+  transform: translateX(16px);
+  background: #fff;
+}
+
+.bascule--boite.bascule--actif .bascule__piste {
+  background: var(--boite);
+  box-shadow: 0 0 12px -2px var(--boite);
+}
+
+/* Barre d'action flottante : opaque, elle passe au-dessus de la liste */
+.barre-action {
+  background: color-mix(in oklab, var(--verre-plein) 96%, transparent);
+  border: 1px solid var(--contour);
+  box-shadow: var(--halo-fort);
+}
+
+/* ------------------------------------------------------------- Feuilles */
+
+.feuille__pied {
+  flex-wrap: wrap;
+}
+
+.feuille__pied .bouton {
+  flex: 1 1 auto;
+}
+
+.feuille__corps {
+  background:
+    linear-gradient(180deg, var(--verre-haut), transparent 60px),
+    var(--verre-plein);
+}
+
+.feuille::backdrop {
+  background: var(--voile);
+  backdrop-filter: blur(4px);
+}
+
+.feuille__tete h2 {
+  color: var(--encre);
+}
+
+.toast {
+  background: var(--verre-plein);
+  color: var(--encre);
+  border: 1px solid var(--contour);
+  box-shadow: var(--halo-fort);
+}
+
+.toast__action {
+  color: var(--signature-texte);
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  align-items: flex-start;
+}
+
+.message--alerte {
+  flex-direction: row;
+  align-items: center;
+  color: var(--bientot);
+  background: var(--moutarde-pale);
+  padding: var(--s-3);
+  border-radius: var(--r-champ);
+  font-size: var(--t-sm);
+}
+
+/* --------------------------------------------------------------- Listes */
+
+.ligne + .ligne::before {
+  border-top-color: var(--ligne);
+}
+
+.ligne--frais {
+  --couleur-fraicheur: color-mix(in srgb, var(--frais) 70%, transparent);
+}
+
+.ligne--boite {
+  box-shadow: inset 4px 0 0 var(--boite);
+}
+
+.ligne--perime,
+.ligne--urgent,
+.ligne--bientot,
+.ligne--frais,
+.ligne--boite {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--couleur-fraicheur, var(--boite)) 10%, transparent), transparent 30%);
+}
+
+.ligne__note {
+  font-size: var(--t-xs);
+  color: var(--encre-3);
+  font-style: italic;
+}
+
+.echeance--frais {
+  color: var(--frais);
+}
+
+.niveau {
+  font-weight: 700;
+  color: var(--signature-texte);
+}
+
+.niveau--fin,
+.niveau--un_repas {
+  color: var(--bientot);
+}
+
+.pastille {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 8px;
+  border-radius: var(--r-pastille);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--signature-texte);
+  background: var(--signature-douce);
+  box-shadow: inset 0 0 0 1px var(--trait);
+  vertical-align: middle;
+}
+
+.pastille--boite {
+  color: var(--boite);
+  background: color-mix(in srgb, var(--boite) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--boite) 45%, transparent);
+  margin-left: 4px;
+}
+
+.pastille--info {
+  color: var(--signature-texte);
+  background: var(--signature-douce);
+  box-shadow: inset 0 0 0 1px var(--trait);
+  align-self: flex-start;
+}
+
+.pastille--nouveau {
+  color: var(--bientot);
+  background: var(--moutarde-pale);
+  box-shadow: none;
+  margin-left: 6px;
+}
+
+.case-ligne__sous {
+  display: block;
+  font-size: var(--t-xs);
+  color: var(--encre-2);
+}
+
+.jauge > .jauge__plein {
+  background: var(--frais);
+  box-shadow: 0 0 8px -1px var(--frais);
+}
+
+.idee__urgent {
+  color: var(--urgent);
+}
+
+.idees-embarquees {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+/* ------------------------------------------------------------- Réglages */
+
+.etat-ia {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: var(--t-sm);
+  color: var(--encre-2);
+}
+
+.etat-ia::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--encre-3);
+}
+
+.etat-ia--ok {
+  color: var(--frais);
+}
+
+.etat-ia--ok::before {
+  background: var(--frais);
+  box-shadow: 0 0 8px var(--frais);
+}
+
+.etat-ia--ko {
+  color: var(--bientot);
+}
+
+.etat-ia--ko::before {
+  background: var(--bientot);
+}
+
+/* ---------------------------------------------------------- Connexion */
+
+.connexion__titre {
+  text-shadow: var(--texte-neon);
+}
+
+/* ---------------------------------------------------------- Mouvement */
+
+@media (prefers-reduced-motion: reduce) {
+  .bascule__curseur,
+  .bascule__piste,
+  .depot {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .panneau,
+  .liste,
+  .tuile,
+  .jour-carte,
+  .ticket,
+  .budget,
+  .navigation {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--verre-plein);
+  }
+}

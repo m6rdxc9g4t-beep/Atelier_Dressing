@@ -1,0 +1,390 @@
+// Moteur IA hybride d'atelier_Dressing (même principe qu'atelier_Cuisine) :
+//
+//  * local : Ollama sur le Mac (http://localhost:11434), hors ligne, gratuit ;
+//  * cloud : Claude, via la fonction Supabase « ia-dressing » (la clé API reste
+//    côté serveur) ;
+//  * auto  : Ollama s'il répond en moins de 3 s, sinon Claude.
+//
+// Trois tâches : reconnaître un vêtement en photo, composer des tenues avec le
+// dressing, et estimer ta silhouette sur une photo en pied pour le mannequin.
+// Les consignes et les schémas JSON sont les mêmes que dans
+// backend/supabase/functions/ia-dressing/index.ts : modifier les deux côtés.
+
+import { CATEGORIES, LONGUEURS, OCCASIONS, SAISONS } from "./categories";
+import { hexValide, nomCouleur, normaliserHex } from "./couleurs";
+import { supabase } from "./supabase";
+import type { Avatar, Categorie, Couleur, Longueur, Occasion, Saison, Vetement } from "./types";
+
+export type ModeIA = "local" | "cloud" | "auto";
+
+export interface ReglagesIA {
+  modeIA: ModeIA;
+  ollamaUrl: string;
+  ollamaModele: string;
+  ollamaModeleVision: string;
+}
+
+export const REGLAGES_IA_DEFAUT: ReglagesIA = {
+  modeIA: "auto",
+  ollamaUrl: "http://localhost:11434",
+  ollamaModele: "llama3.2",
+  ollamaModeleVision: "llama3.2-vision",
+};
+
+export type Moteur = "ollama" | "claude";
+
+/** Erreur à montrer telle quelle, avec la bascule proposée. */
+export class IAIndisponible extends Error {
+  readonly proposer: ModeIA | null;
+  constructor(message: string, proposer: ModeIA | null) {
+    super(message);
+    this.proposer = proposer;
+  }
+}
+
+export interface Image64 {
+  media_type: string;
+  data: string; // base64 sans préfixe
+}
+
+/** Ollama répond-il ? (délai maximal : 3 secondes) */
+export async function ollamaDisponible(url: string, delai = 3000): Promise<boolean> {
+  const ctrl = new AbortController();
+  const minuteur = setTimeout(() => ctrl.abort(), delai);
+  try {
+    const r = await fetch(url.replace(/\/$/, "") + "/api/tags", { signal: ctrl.signal });
+    return r.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(minuteur);
+  }
+}
+
+// ---------------------------------------------------------------- Schémas
+
+export const SCHEMA_VETEMENT = {
+  type: "object",
+  additionalProperties: false,
+  required: ["nom", "categorie", "sous_type", "couleurs", "matiere", "motif", "saisons", "occasions", "style", "longueur", "chaleur", "marque"],
+  properties: {
+    nom: { type: "string" },
+    categorie: { type: "string", enum: CATEGORIES },
+    sous_type: { type: "string" },
+    couleurs: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["nom", "hex"],
+        properties: { nom: { type: "string" }, hex: { type: "string" } },
+      },
+    },
+    matiere: { type: "string" },
+    motif: { type: "string" },
+    saisons: { type: "array", items: { type: "string", enum: SAISONS } },
+    occasions: { type: "array", items: { type: "string", enum: OCCASIONS } },
+    style: { type: "string" },
+    longueur: { type: "string", enum: [...LONGUEURS, ""] },
+    chaleur: { type: "integer" },
+    marque: { type: "string" },
+  },
+};
+
+export const SCHEMA_TENUES = {
+  type: "object",
+  additionalProperties: false,
+  required: ["tenues"],
+  properties: {
+    tenues: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["nom", "pieces", "explication"],
+        properties: {
+          nom: { type: "string" },
+          pieces: { type: "array", items: { type: "string" } },
+          explication: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+export const SCHEMA_SILHOUETTE = {
+  type: "object",
+  additionalProperties: false,
+  required: ["morphologie", "epaules", "poitrine", "tour_taille", "hanches", "jambes", "carnation", "cheveux_couleur", "cheveux_longueur"],
+  properties: {
+    morphologie: { type: "string", enum: ["feminine", "masculine", "neutre"] },
+    epaules: { type: "number" },
+    poitrine: { type: "number" },
+    tour_taille: { type: "number" },
+    hanches: { type: "number" },
+    jambes: { type: "number" },
+    carnation: { type: "string" },
+    cheveux_couleur: { type: "string" },
+    cheveux_longueur: { type: "string", enum: ["rase", "court", "mi_long", "long"] },
+  },
+};
+
+export const CONSIGNES_VETEMENT = `Tu es l'assistant de l'application de garde-robe atelier_Dressing. On te montre la photo d'un vêtement ou d'un accessoire (souvent posé à plat ou sur un cintre). Réponds uniquement en JSON, en français.
+- nom : court et parlant, comme sur une étiquette de dressing (« Chemise en lin blanche », « Jean droit brut », « Baskets cuir blanches »).
+- categorie : haut (t-shirt, chemise, pull, sweat, top, débardeur), bas (pantalon, jean, short, jupe), robe (robe, combinaison), veste (veste, blazer, manteau, doudoune, trench), chaussures, sac, chapeau (casquette, bonnet), lunettes, echarpe (écharpe, foulard), bijoux (collier, montre, bracelet, boucles), ceinture, autre.
+- sous_type : le type précis en minuscules (« chemise », « jupe midi », « baskets »).
+- couleurs : 1 à 3 couleurs, de la plus présente à la moins présente, avec un nom simple (Noir, Blanc, Écru, Gris, Beige, Camel, Marron, Kaki, Vert, Bleu marine, Bleu, Denim, Rouge, Bordeaux, Rose, Orange, Jaune, Moutarde, Violet, Lilas, Doré, Argenté…) et son code hexadécimal #rrggbb fidèle à la photo.
+- matiere : coton, lin, laine, cachemire, denim, cuir, synthétique, soie, maille… (chaîne vide si incertain).
+- motif : uni, rayures, carreaux, fleurs, pois, imprimé, logo…
+- saisons : les saisons où on la porte. occasions : quotidien, travail, soiree, sport, ceremonie, detente.
+- style : en deux ou trois mots (« casual chic », « sportswear », « classique »).
+- longueur (hauts, bas, robes, vestes seulement, sinon chaîne vide) : courte, hanches, cuisses, genoux, mollets, chevilles.
+- chaleur : 1 très léger (débardeur en lin), 2 léger (t-shirt), 3 mi-saison (chemise, sweat fin), 4 chaud (pull en laine), 5 très chaud (doudoune).
+- marque : seulement si elle est lisible sur la photo, sinon chaîne vide.`;
+
+export const CONSIGNES_TENUES = `Tu es le styliste personnel de l'application atelier_Dressing. On te donne le dressing (une pièce par ligne : identifiant, catégorie, nom, couleurs, chaleur de 1 à 5, saisons, occasions, jours depuis le dernier port) et le contexte (météo, occasion, envie). Propose jusqu'à 3 tenues complètes et différentes, en JSON, en français.
+Règles :
+- Utilise UNIQUEMENT les identifiants fournis, recopiés à l'identique.
+- Une tenue = un haut + un bas, OU une robe ; plus des chaussures si possible ; une veste s'il fait moins de 17 °C ou s'il pleut ; un ou deux accessoires au plus.
+- Respecte la météo (chaleur des pièces) et l'occasion. Accorde les couleurs : des neutres et une couleur forte au plus, ou un camaïeu.
+- Fais ressortir des pièces peu portées quand c'est possible.
+- nom : un titre court et joyeux (« Lin et sneakers », « Chic décontracté »). explication : une ou deux phrases qui disent pourquoi ça marche aujourd'hui.`;
+
+export const CONSIGNES_SILHOUETTE = `Tu aides à créer un mannequin numérique qui ressemble à la personne de la photo (en pied, de face). Réponds uniquement en JSON.
+- morphologie : feminine, masculine ou neutre (silhouette générale, pas de jugement).
+- epaules, poitrine, tour_taille, hanches : proportions relatives entre 0.85 et 1.2 (1 = moyenne pour cette morphologie).
+- jambes : longueur relative des jambes entre 0.92 et 1.08.
+- carnation : couleur de peau en #rrggbb. cheveux_couleur : en #rrggbb. cheveux_longueur : rase, court, mi_long ou long.
+Reste bienveillant et neutre : ce sont des réglages de mannequin, pas une évaluation.`;
+
+// ---------------------------------------------------------------- Normalisation
+
+export interface AnalyseVetement {
+  nom: string;
+  categorie: Categorie;
+  sous_type: string;
+  couleurs: Couleur[];
+  matiere: string;
+  motif: string;
+  saisons: Saison[];
+  occasions: Occasion[];
+  style: string;
+  longueur: Longueur | null;
+  chaleur: number;
+  marque: string;
+}
+
+const texte = (v: unknown, max = 80): string => (typeof v === "string" ? v.trim().slice(0, max) : "");
+const dans = <T extends string>(v: unknown, liste: readonly T[]): T | null =>
+  typeof v === "string" && (liste as readonly string[]).includes(v.trim().toLowerCase()) ? (v.trim().toLowerCase() as T) : null;
+const majuscule = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+/** Nettoie la réponse de l'IA : l'app reçoit toujours le même format, quel que soit le moteur. */
+export function normaliserAnalyse(brut: unknown): AnalyseVetement {
+  const o = (brut && typeof brut === "object" ? brut : {}) as Record<string, unknown>;
+  const categorie = dans(o.categorie, CATEGORIES) ?? "autre";
+  const couleurs: Couleur[] = (Array.isArray(o.couleurs) ? o.couleurs : [])
+    .map((c) => {
+      const x = (c && typeof c === "object" ? c : {}) as Record<string, unknown>;
+      const hex = typeof x.hex === "string" && hexValide(x.hex) ? normaliserHex(x.hex) : null;
+      const nom = majuscule(texte(x.nom, 30));
+      if (!hex && !nom) return null;
+      return { nom: nom || nomCouleur(hex!), hex: hex ?? "#888888" };
+    })
+    .filter((c): c is Couleur => !!c)
+    .slice(0, 3);
+  const liste = <T extends string>(v: unknown, l: readonly T[]) =>
+    [...new Set((Array.isArray(v) ? v : []).map((x) => dans(x, l)).filter((x): x is T => !!x))];
+  const chaleur = Math.round(Number(o.chaleur));
+  return {
+    nom: majuscule(texte(o.nom, 60)),
+    categorie,
+    sous_type: texte(o.sous_type, 40).toLowerCase(),
+    couleurs,
+    matiere: texte(o.matiere, 40).toLowerCase(),
+    motif: texte(o.motif, 30).toLowerCase() || "uni",
+    saisons: liste(o.saisons, SAISONS),
+    occasions: liste(o.occasions, OCCASIONS),
+    style: texte(o.style, 40).toLowerCase(),
+    longueur: dans(o.longueur, LONGUEURS),
+    chaleur: Number.isFinite(chaleur) ? Math.min(5, Math.max(1, chaleur)) : 2,
+    marque: texte(o.marque, 40),
+  };
+}
+
+export interface TenueIA {
+  nom: string;
+  pieces: string[];
+  explication: string;
+}
+
+export function normaliserTenues(brut: unknown, idsConnus: Set<string>): TenueIA[] {
+  const o = (brut && typeof brut === "object" ? brut : {}) as Record<string, unknown>;
+  return (Array.isArray(o.tenues) ? o.tenues : [])
+    .map((t) => {
+      const x = (t && typeof t === "object" ? t : {}) as Record<string, unknown>;
+      const pieces = (Array.isArray(x.pieces) ? x.pieces : []).filter((id): id is string => typeof id === "string" && idsConnus.has(id));
+      return { nom: majuscule(texte(x.nom, 60)) || "Tenue du jour", pieces: [...new Set(pieces)], explication: texte(x.explication, 300) };
+    })
+    .filter((t) => t.pieces.length >= 2)
+    .slice(0, 3);
+}
+
+export function normaliserSilhouette(brut: unknown): Partial<Avatar> {
+  const o = (brut && typeof brut === "object" ? brut : {}) as Record<string, unknown>;
+  const proportion = (v: unknown, min: number, max: number) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.round(Math.min(max, Math.max(min, n)) * 100) / 100 : 1;
+  };
+  const r: Partial<Avatar> = {
+    epaules: proportion(o.epaules, 0.85, 1.2),
+    poitrine: proportion(o.poitrine, 0.85, 1.2),
+    tour_taille: proportion(o.tour_taille, 0.85, 1.25),
+    hanches: proportion(o.hanches, 0.85, 1.25),
+    jambes: proportion(o.jambes, 0.92, 1.08),
+  };
+  const m = dans(o.morphologie, ["feminine", "masculine", "neutre"] as const);
+  if (m) r.morphologie = m;
+  if (typeof o.carnation === "string" && hexValide(o.carnation)) r.carnation = normaliserHex(o.carnation);
+  if (typeof o.cheveux_couleur === "string" && hexValide(o.cheveux_couleur)) r.cheveux_couleur = normaliserHex(o.cheveux_couleur);
+  const l = dans(o.cheveux_longueur, ["rase", "court", "mi_long", "long"] as const);
+  if (l) r.cheveux_longueur = l;
+  return r;
+}
+
+/** Résumé du dressing envoyé à l'IA (une ligne par pièce, sans photo). */
+export function resumeDressing(vetements: Vetement[], derniers: Map<string, string>, aujourdhui = new Date()): string {
+  return vetements
+    .filter((v) => !v.archive && v.categorie !== "autre")
+    .map((v) => {
+      const d = derniers.get(v.id);
+      const jours = d ? Math.round((aujourdhui.getTime() - new Date(d + "T12:00:00").getTime()) / 86_400_000) : "jamais";
+      return [
+        v.id,
+        v.categorie,
+        v.nom || v.sous_type,
+        v.couleurs.map((c) => c.nom).join("/") || "?",
+        `chaleur ${v.chaleur}`,
+        v.saisons.join("/") || "toutes saisons",
+        v.occasions.join("/") || "toutes occasions",
+        `porté il y a ${jours}${typeof jours === "number" ? " j" : ""}`,
+      ].join(" | ");
+    })
+    .join("\n");
+}
+
+// ---------------------------------------------------------------- Moteurs
+
+type Tache = "vetement" | "tenues" | "silhouette";
+
+interface Demande {
+  tache: Tache;
+  image?: Image64;
+  /** Pour les tenues : dressing résumé et contexte. */
+  dressing?: string;
+  contexte?: string;
+  /** Indice pour le vêtement : couleurs mesurées sur la photo détourée. */
+  indice?: string;
+}
+
+const SCHEMAS: Record<Tache, object> = { vetement: SCHEMA_VETEMENT, tenues: SCHEMA_TENUES, silhouette: SCHEMA_SILHOUETTE };
+const CONSIGNES: Record<Tache, string> = { vetement: CONSIGNES_VETEMENT, tenues: CONSIGNES_TENUES, silhouette: CONSIGNES_SILHOUETTE };
+
+function messageUtilisateur(d: Demande): string {
+  if (d.tache === "tenues") return `Contexte : ${d.contexte}\n\nDressing :\n${d.dressing}`;
+  if (d.tache === "silhouette") return "Voici la photo en pied.";
+  return `Voici la photo du vêtement.${d.indice ? ` Couleurs mesurées sur la photo : ${d.indice}.` : ""}`;
+}
+
+async function viaOllama(d: Demande, r: ReglagesIA): Promise<unknown> {
+  const modele = d.image ? r.ollamaModeleVision : r.ollamaModele;
+  let reponse: Response;
+  try {
+    reponse = await fetch(r.ollamaUrl.replace(/\/$/, "") + "/api/chat", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: modele,
+        stream: false,
+        format: SCHEMAS[d.tache],
+        options: { temperature: d.tache === "tenues" ? 0.7 : 0 },
+        messages: [
+          { role: "system", content: CONSIGNES[d.tache] },
+          d.image
+            ? { role: "user", content: messageUtilisateur(d), images: [d.image.data] }
+            : { role: "user", content: messageUtilisateur(d) },
+        ],
+      }),
+    });
+  } catch {
+    throw new IAIndisponible("Ollama ne répond pas. Lance l'app Ollama sur ce Mac, ou passe en mode Cloud.", "cloud");
+  }
+  if (!reponse.ok) {
+    const corps = await reponse.text();
+    if (/not found/i.test(corps)) {
+      throw new IAIndisponible(`Le modèle « ${modele} » n'est pas installé. Dans le Terminal : ollama pull ${modele}`, "cloud");
+    }
+    throw new Error(`Ollama a répondu ${reponse.status}`);
+  }
+  const json = (await reponse.json()) as { message?: { content?: string } };
+  return JSON.parse(json.message?.content ?? "{}");
+}
+
+async function viaClaude(d: Demande): Promise<unknown> {
+  if (!supabase) {
+    throw new IAIndisponible("Le mode Cloud demande un compte synchronisé (Supabase). Utilise Ollama en local.", "local");
+  }
+  const { data: s } = await supabase.auth.getSession();
+  if (!s.session) throw new IAIndisponible("Connecte-toi à ton compte pour utiliser Claude.", "local");
+  const { data, error } = await supabase.functions.invoke("ia-dressing", { body: d });
+  if (error) {
+    let message = error.message;
+    const contexte = (error as { context?: Response }).context;
+    if (contexte && typeof contexte.json === "function") {
+      try {
+        message = ((await contexte.json()) as { erreur?: string }).erreur ?? message;
+      } catch {
+        /* réponse non JSON */
+      }
+    }
+    if (/failed to send|fetch/i.test(message)) {
+      throw new IAIndisponible("Pas de connexion : le mode Cloud a besoin d'Internet. Passe en mode Local avec Ollama.", "local");
+    }
+    throw new Error(message);
+  }
+  return (data as { resultat: unknown }).resultat;
+}
+
+async function choisirMoteur(r: ReglagesIA): Promise<Moteur> {
+  if (r.modeIA === "local") return "ollama";
+  if (r.modeIA === "cloud") return "claude";
+  return (await ollamaDisponible(r.ollamaUrl)) ? "ollama" : "claude";
+}
+
+async function executer(d: Demande, r: ReglagesIA): Promise<{ brut: unknown; moteur: Moteur }> {
+  const moteur = await choisirMoteur(r);
+  if (moteur === "ollama") {
+    if (r.modeIA === "local" && !(await ollamaDisponible(r.ollamaUrl))) {
+      throw new IAIndisponible("Ollama ne répond pas sur " + r.ollamaUrl + ". Lance l'app Ollama, ou passe en mode Cloud.", "cloud");
+    }
+    return { brut: await viaOllama(d, r), moteur };
+  }
+  return { brut: await viaClaude(d), moteur };
+}
+
+export async function analyserVetement(image: Image64, r: ReglagesIA, indice?: string) {
+  const { brut, moteur } = await executer({ tache: "vetement", image, indice }, r);
+  return { analyse: normaliserAnalyse(brut), moteur };
+}
+
+export async function proposerTenuesIA(dressing: string, contexte: string, ids: Set<string>, r: ReglagesIA) {
+  const { brut, moteur } = await executer({ tache: "tenues", dressing, contexte }, r);
+  return { tenues: normaliserTenues(brut, ids), moteur };
+}
+
+export async function analyserSilhouette(image: Image64, r: ReglagesIA) {
+  const { brut, moteur } = await executer({ tache: "silhouette", image }, r);
+  return { avatar: normaliserSilhouette(brut), moteur };
+}
+
+export const NOM_MOTEUR: Record<Moteur, string> = { ollama: "Ollama (local)", claude: "Claude (cloud)" };
