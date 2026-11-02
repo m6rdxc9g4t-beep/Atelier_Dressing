@@ -6,7 +6,7 @@
 // L'interface ne sait pas lequel elle utilise : FournisseurDonnees (donnees.tsx)
 // reçoit l'un ou l'autre.
 
-import type { Garderobe, Port, Profil, Tenue, Vetement } from "./types";
+import type { Essayage, Garderobe, Port, Profil, Tenue, Vetement } from "./types";
 
 export interface Depot {
   readonly mode: "local" | "cloud";
@@ -18,6 +18,8 @@ export interface Depot {
   ecrirePort(p: Port): Promise<void>;
   supprimerPort(id: string): Promise<void>;
   ecrireProfil(p: Profil): Promise<void>;
+  ecrireEssayage(e: Essayage): Promise<void>;
+  supprimerEssayage(id: string): Promise<void>;
   ecrireImage(cle: string, b: Blob): Promise<void>;
   lireImage(cle: string): Promise<Blob | null>;
   supprimerImage(cle: string): Promise<void>;
@@ -27,11 +29,12 @@ export interface Depot {
 
 // ------------------------------------------------------- IndexedDB minimal
 
-export type Magasin = "vetements" | "tenues" | "ports" | "profil" | "images";
+export type Magasin = "vetements" | "tenues" | "ports" | "profil" | "images" | "essayages";
 
 export function ouvrirBase(nom: string, magasins: Magasin[]): Promise<IDBDatabase> {
   return new Promise((ok, ko) => {
-    const req = indexedDB.open(nom, 1);
+    // Version 2 : ajout du magasin « essayages »
+    const req = indexedDB.open(nom, 2);
     req.onupgradeneeded = () => {
       for (const m of magasins) if (!req.result.objectStoreNames.contains(m)) req.result.createObjectStore(m);
     };

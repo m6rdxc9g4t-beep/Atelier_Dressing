@@ -1,4 +1,5 @@
-# Projet Supabase d'atelier_Dressing (supabase link --project-ref <ref>)
+# atelier_Dressing vit dans le projet Supabase d'atelier_Cuisine
+# (supabase link --project-ref hcdiuxznceuixindcvhp)
 project_id = "atelier-dressing"
 
 [api]
@@ -20,4 +21,7 @@ site_url = "http://localhost:1430"
 additional_redirect_urls = ["http://localhost:1430"]
 
 [functions.ia-dressing]
+verify_jwt = true
+
+[functions.essayage]
 verify_jwt = true

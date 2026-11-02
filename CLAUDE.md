@@ -13,11 +13,14 @@ Avant toute modification, lis [`README.md`](README.md) et [`design/DESIGN.md`](d
 | Détourage | `frontend/src/lib/detourage.ts` (sans IA, sur l'appareil) |
 | Mannequin | `frontend/src/lib/mannequin.ts` (géométrie, zones, calage) + `components/Mannequin.tsx` (SVG) |
 | Tenues sans IA | `frontend/src/lib/suggestion.ts` (météo, saison, occasion, harmonie, rotation) |
+| Essayage réaliste | `frontend/src/lib/essayage.ts` (consigne, photos) → fonction `essayage` → FLUX.2 (Black Forest Labs) ; résultats dans la table `essayages` |
+| Supabase | projet **partagé avec atelier_Cuisine** (`hcdiuxznceuixindcvhp`) : ne jamais toucher aux tables de Cuisine ; fonctions SQL préfixées `dressing_` |
 
 ## Règles
 
 - TypeScript strict, pas de `any`. Les listes de catégories, saisons, occasions et longueurs existent en trois endroits : `lib/categories.ts`, les contraintes `check` SQL et `functions/ia-dressing/index.ts`. Les consignes et schémas de l'IA existent en double (`lib/ia.ts` et la fonction) : modifier les deux côtés.
 - Toute nouvelle table : RLS activée, politiques par `user_id`, fonctions SQL en `security invoker` avec `search_path = ''`, ajout à la publication `supabase_realtime`, et la même chose dans `DepotLocal` et `DepotCloud`.
+- Le mannequin pose les pièces à l'**échelle réelle** (`rectReel` dans `mannequin.ts` : épaules mesurées sur la photo → tes épaules, ceinture → ta taille) ; sans repères, la pièce remplit sa zone. Le réglage manuel (`calage`) s'applique par-dessus.
 - Une photo remplacée prend une **nouvelle clé** (le cache d'URL et le cache IndexedDB sont indexés par clé).
 - Ce que l'IA renvoie est toujours vérifié par l'utilisateur avant d'être enregistré (scanner : fiche à vérifier ; silhouette : réglages à enregistrer).
 - Design : charte « néon monochrome » de la suite Atelier, signature **champagne** (`#E6C79C` en néon, `#9C7643` en clair) posée dans `tokens.css` (le kit ne connaît pas encore Dressing). `frontend/src/styles/atelier-brand/` est une copie exacte du kit de la suite : ne jamais l'éditer ici. `app.css` et `neon.css` reprennent la base commune d'atelier_Cuisine ; ce qui est propre au dressing va dans `dressing.css`. `<html data-atelier-app="dressing">`, thème `data-theme="dark"` + classe `dark` (défaut) ou `data-theme="light"`. Les pastilles de couleur des vêtements montrent la vraie couleur, jamais la signature. Cibles tactiles de 44 px.

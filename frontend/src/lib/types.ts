@@ -101,6 +101,7 @@ export interface Avatar {
   cheveux_couleur: string; // hex
   cheveux_longueur: LongueurCheveux;
   visage: string | null; // clé de la photo du visage (recadrée)
+  photo_pied: string | null; // clé de ta photo en pied (essayage réaliste)
 }
 
 export interface Profil {
@@ -121,12 +122,23 @@ export const AVATAR_DEFAUT: Avatar = {
   cheveux_couleur: "#3b2a20",
   cheveux_longueur: "court",
   visage: null,
+  photo_pied: null,
 };
+
+/** Photo générée de toi portant des pièces du dressing. */
+export interface Essayage {
+  id: string;
+  pieces: string[];
+  image: string; // clé de la photo générée
+  moteur: string;
+  cree_le: string;
+}
 
 export interface Garderobe {
   vetements: Vetement[];
   tenues: Tenue[];
   ports: Port[];
+  essayages: Essayage[];
   profil: Profil;
 }
 

@@ -6,9 +6,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { profilVide } from "./depot-local";
 import { depuisStockee, ecrire, effacer, lire, ouvrirBase, versStockee, type Depot, type ImageStockee } from "./depot";
 import { BUCKET } from "./supabase";
-import { maintenant, type Garderobe, type Port, type Profil, type Tenue, type Vetement } from "./types";
+import { maintenant, type Essayage, type Garderobe, type Port, type Profil, type Tenue, type Vetement } from "./types";
 
-const TABLES = ["vetements", "tenues", "ports", "profils"] as const;
+const TABLES = ["vetements", "tenues", "ports", "profils", "essayages"] as const;
 
 export class DepotCloud implements Depot {
   readonly mode = "cloud" as const;
@@ -27,19 +27,21 @@ export class DepotCloud implements Depot {
   }
 
   async charger(): Promise<Garderobe> {
-    const [v, t, p, pr] = await Promise.all([
+    const [v, t, p, pr, e] = await Promise.all([
       this.sb.from("vetements").select("*").order("cree_le", { ascending: false }),
       this.sb.from("tenues").select("*").order("cree_le", { ascending: false }),
       this.sb.from("ports").select("*").order("porte_le", { ascending: false }).limit(2000),
       this.sb.from("profils").select("*").maybeSingle(),
+      this.sb.from("essayages").select("*").order("cree_le", { ascending: false }).limit(500),
     ]);
-    for (const r of [v, t, p, pr]) if (r.error) throw r.error;
+    for (const r of [v, t, p, pr, e]) if (r.error) throw r.error;
     const vide = profilVide();
     const profil = pr.data as (Profil & { avatar: Partial<Profil["avatar"]> }) | null;
     return {
       vetements: (v.data as Vetement[]).map((x) => ({ ...x, prix: x.prix == null ? null : Number(x.prix) })),
       tenues: t.data as Tenue[],
       ports: p.data as Port[],
+      essayages: e.data as Essayage[],
       profil: profil
         ? { prenom: profil.prenom ?? "", avatar: { ...vide.avatar, ...profil.avatar }, maj_le: profil.maj_le }
         : vide,
@@ -82,6 +84,16 @@ export class DepotCloud implements Depot {
     return this.verifier(
       this.sb.from("profils").upsert({ user_id: this.userId, prenom: p.prenom, avatar: p.avatar, maj_le: maintenant() }),
     );
+  }
+
+  ecrireEssayage(e: Essayage) {
+    return this.verifier(this.sb.from("essayages").upsert(e));
+  }
+
+  async supprimerEssayage(id: string) {
+    const { data } = await this.sb.from("essayages").select("image").eq("id", id).maybeSingle();
+    await this.verifier(this.sb.from("essayages").delete().eq("id", id));
+    if (data?.image) await this.supprimerImage(data.image);
   }
 
   async ecrireImage(cle: string, b: Blob) {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarCheck,
+  Camera,
   CloudRain,
   LoaderCircle,
   Move,
@@ -21,7 +22,8 @@ import { useToast } from "../components/Toast";
 import { basculerPiece, choisirProposition, deshabiller, habiller, montrerPropositions, oublierPropositions, useCabine, type PropositionAffichee } from "../lib/cabine";
 import { CATEGORIES_CABINE, LIBELLE_CATEGORIE, LIBELLE_OCCASION, OCCASIONS, saisonDuJour } from "../lib/categories";
 import { aujourdhui } from "../lib/dates";
-import { useDonnees, useReglages } from "../lib/donnees";
+import { useDonnees, useImage, useReglages } from "../lib/donnees";
+import { essayer, EssayageImpossible, memesPieces } from "../lib/essayage";
 import { NOM_MOTEUR, proposerTenuesIA, resumeDressing } from "../lib/ia";
 import { meteoDuJour, type Meteo } from "../lib/meteo";
 import { nettoyerTenue, proposerTenue } from "../lib/suggestion";
@@ -36,7 +38,8 @@ const TEMPERATURES = [
 ];
 
 export function Cabine({ versScanner }: { versScanner: () => void }) {
-  const { vetements, tenues, ports, profil, derniers, enregistrerVetement, enregistrerTenue, enregistrerPort } = useDonnees();
+  const { vetements, tenues, ports, profil, derniers, depot, essayages, enregistrerVetement, enregistrerTenue, enregistrerPort, enregistrerEssayage } =
+    useDonnees();
   const [reglages] = useReglages();
   const toast = useToast();
   const cabine = useCabine();
@@ -49,6 +52,8 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
   const [selection, setSelection] = useState<string | null>(null);
   const [calages, setCalages] = useState<Record<string, Calage>>({});
   const [sauver, setSauver] = useState(false);
+  const [generation, setGeneration] = useState(false);
+  const [vuePhoto, setVuePhoto] = useState(true);
   const minuteurs = useRef<Record<string, number>>({});
 
   const actifs = useMemo(() => vetements.filter((v) => !v.archive), [vetements]);
@@ -57,6 +62,25 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
     .map((id) => parId.get(id))
     .filter((v): v is Vetement => !!v)
     .map((v) => (calages[v.id] ? { ...v, calage: calages[v.id] } : v));
+
+  // Dernier essayage réaliste de la tenue en cours, s'il existe
+  const essai = cabine.pieces.length ? essayages.find((e) => memesPieces(e.pieces, cabine.pieces.filter((id) => parId.get(id)?.categorie !== "autre"))) : undefined;
+  const photoEssai = useImage(essai?.image);
+
+  async function essayageReel() {
+    setGeneration(true);
+    setAjuster(false);
+    try {
+      const e = await essayer(depot, profil, portees);
+      await enregistrerEssayage(e);
+      setVuePhoto(true);
+      toast("Ta photo est prête, elle est gardée dans Tenues → Photos");
+    } catch (e) {
+      toast(e instanceof EssayageImpossible ? e.message : "Essayage impossible pour le moment.", { erreur: true });
+    } finally {
+      setGeneration(false);
+    }
+  }
 
   useEffect(() => {
     if (!reglages.meteo) return;
@@ -223,16 +247,37 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
 
       <div className="cabine">
         <div className="cabine__colonne">
-          <div className={"panneau cabine__scene" + (ajuster ? " cabine__scene--ajuster" : "")}>
-            <Mannequin
-              avatar={profil.avatar}
-              pieces={portees}
-              selection={ajuster ? selection : null}
-              onSelection={ajuster ? setSelection : undefined}
-              onCalage={ajuster ? changerCalage : undefined}
-              libelle={portees.length ? "Ton mannequin porte : " + portees.map((p) => p.nom).join(", ") : "Ton mannequin, sans vêtement"}
-            />
+          {photoEssai && !ajuster && (
+            <div className="segments cabine__vue" role="radiogroup" aria-label="Affichage">
+              <button role="radio" className="segment" aria-checked={vuePhoto} aria-selected={vuePhoto} onClick={() => setVuePhoto(true)}>
+                Photo réaliste
+              </button>
+              <button role="radio" className="segment" aria-checked={!vuePhoto} aria-selected={!vuePhoto} onClick={() => setVuePhoto(false)}>
+                Mannequin
+              </button>
+            </div>
+          )}
+          <div className={"panneau cabine__scene" + (ajuster ? " cabine__scene--ajuster" : "")} aria-busy={generation}>
+            {photoEssai && vuePhoto && !ajuster ? (
+              <img className="cabine__photo" src={photoEssai} alt={"Toi, portant : " + portees.map((p) => p.nom).join(", ")} />
+            ) : (
+              <Mannequin
+                avatar={profil.avatar}
+                pieces={portees}
+                selection={ajuster ? selection : null}
+                onSelection={ajuster ? setSelection : undefined}
+                onCalage={ajuster ? changerCalage : undefined}
+                libelle={portees.length ? "Ton mannequin porte : " + portees.map((p) => p.nom).join(", ") : "Ton mannequin, sans vêtement"}
+              />
+            )}
             {!portees.length && <p className="cabine__invite">Touche une pièce à droite, ou laisse l'IA composer une tenue.</p>}
+            {generation && (
+              <div className="cabine__generation" role="status">
+                <LoaderCircle className="tourne" size={32} aria-hidden />
+                <p>Ta photo se prépare…</p>
+                <p className="note">Environ 20 à 40 secondes.</p>
+              </div>
+            )}
           </div>
 
           {ajuster && (
@@ -311,6 +356,9 @@ export function Cabine({ versScanner }: { versScanner: () => void }) {
             <button className="bouton bouton--action" onClick={proposerAvecIA} disabled={enCours}>
               {enCours ? <LoaderCircle className="tourne" size={18} aria-hidden /> : <Sparkles size={18} aria-hidden />}
               {enCours ? "Le styliste réfléchit…" : "Proposer une tenue"}
+            </button>
+            <button className="bouton bouton--discret" onClick={essayageReel} disabled={!portees.length || generation} title="Une vraie photo de toi avec ces pièces">
+              <Camera size={18} aria-hidden /> {essai ? "Refaire la photo" : "Essayage réaliste"}
             </button>
             <button className="bouton bouton--discret" onClick={auHasard} title="Tirage instantané, sans IA">
               <Shuffle size={18} aria-hidden /> Au hasard

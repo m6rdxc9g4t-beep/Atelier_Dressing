@@ -52,6 +52,10 @@ Cintre champagne lumineux avec son étiquette, dans le carré arrondi au cadre c
 | ![Scanner](captures/iphone-3-scanner.png) | ![Vérifier](captures/iphone-3b-verifier.png) | ![Tenues](captures/iphone-4-tenues.png) |
 | ![Moi](captures/iphone-5-moi.png) | ![Bilan](captures/iphone-4b-bilan.png) | ![Clair](captures/iphone-clair-dressing.png) |
 
+**Ta photo en pied** pour l'essayage réaliste
+
+![Photo en pied](captures/moi-photo-en-pied.png)
+
 **Mac**
 
 ![Cabine](captures/mac-1-cabine.png)

@@ -12,7 +12,7 @@ import {
   type Depot,
   type ImageStockee,
 } from "./depot";
-import { AVATAR_DEFAUT, maintenant, type Garderobe, type Port, type Profil, type Tenue, type Vetement } from "./types";
+import { AVATAR_DEFAUT, maintenant, type Essayage, type Garderobe, type Port, type Profil, type Tenue, type Vetement } from "./types";
 
 const PROFIL = "moi";
 
@@ -25,17 +25,18 @@ export class DepotLocal implements Depot {
   private base: Promise<IDBDatabase>;
 
   constructor(nom = "atelier-dressing") {
-    this.base = ouvrirBase(nom, ["vetements", "tenues", "ports", "profil", "images"]);
+    this.base = ouvrirBase(nom, ["vetements", "tenues", "ports", "profil", "images", "essayages"]);
     // Demande au navigateur de ne pas effacer les données en cas de manque de place
     if (typeof navigator !== "undefined") navigator.storage?.persist?.().catch(() => {});
   }
 
   async charger(): Promise<Garderobe> {
     const db = await this.base;
-    const [vetements, tenues, ports, profil] = await Promise.all([
+    const [vetements, tenues, ports, essayages, profil] = await Promise.all([
       lireTout<Vetement>(db, "vetements"),
       lireTout<Tenue>(db, "tenues"),
       lireTout<Port>(db, "ports"),
+      lireTout<Essayage>(db, "essayages"),
       lire<Profil>(db, "profil", PROFIL),
     ]);
     const vide = profilVide();
@@ -43,6 +44,7 @@ export class DepotLocal implements Depot {
       vetements: vetements.sort((a, b) => b.cree_le.localeCompare(a.cree_le)),
       tenues: tenues.sort((a, b) => b.cree_le.localeCompare(a.cree_le)),
       ports: ports.sort((a, b) => b.porte_le.localeCompare(a.porte_le)),
+      essayages: essayages.sort((a, b) => b.cree_le.localeCompare(a.cree_le)),
       profil: profil ? { ...vide, ...profil, avatar: { ...vide.avatar, ...profil.avatar } } : vide,
     };
   }
@@ -85,6 +87,17 @@ export class DepotLocal implements Depot {
 
   async ecrireProfil(p: Profil) {
     await ecrire(await this.base, "profil", PROFIL, p);
+  }
+
+  async ecrireEssayage(e: Essayage) {
+    await ecrire(await this.base, "essayages", e.id, e);
+  }
+
+  async supprimerEssayage(id: string) {
+    const db = await this.base;
+    const e = await lire<Essayage>(db, "essayages", id);
+    await effacer(db, "essayages", id);
+    if (e?.image) await effacer(db, "images", e.image);
   }
 
   async ecrireImage(cle: string, b: Blob) {

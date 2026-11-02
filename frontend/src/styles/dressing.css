@@ -1213,3 +1213,116 @@
     background: var(--verre-plein);
   }
 }
+
+/* --------------------------------------------------------- Essayage réaliste */
+
+.cabine__vue {
+  align-self: flex-start;
+}
+
+.cabine__photo {
+  width: 100%;
+  height: min(72dvh, 680px);
+  object-fit: contain;
+  border-radius: var(--r-champ);
+}
+
+.cabine__generation {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--verre-plein) 78%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--signature-texte);
+  font-weight: 750;
+  text-align: center;
+}
+
+.carte-tenue__photo {
+  width: 100%;
+  height: 264px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: var(--r-champ);
+}
+
+.grille-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s-3);
+}
+
+.mini-photo {
+  aspect-ratio: 2 / 3;
+  border-radius: var(--r-groupe);
+  overflow: hidden;
+  border: 1px solid var(--trait);
+  background: var(--survol);
+  padding: 0;
+  cursor: pointer;
+  transition: border-color var(--duree), box-shadow var(--duree);
+}
+
+.mini-photo:hover {
+  border-color: var(--contour);
+  box-shadow: var(--halo);
+}
+
+.mini-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.essai {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.essai__photo {
+  width: 100%;
+  max-height: 64dvh;
+  object-fit: contain;
+  border-radius: var(--r-champ);
+  background: var(--survol);
+}
+
+/* Photo en pied (onglet Moi) */
+.moi__photo {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: var(--s-4);
+  align-items: start;
+}
+
+.moi__photo-vignette {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--r-champ);
+  overflow: hidden;
+  background: var(--signature-douce);
+  box-shadow: inset 0 0 0 1px var(--contour);
+}
+
+.moi__photo-vignette img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.moi__photo-texte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+}

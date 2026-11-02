@@ -113,7 +113,13 @@ console.log("✓ photos : bucket privé, un dossier par compte");
 
 // --- Temps réel
 const pub = await db.query("select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1");
-assert.deepEqual(pub.rows.map((r) => r.tablename), ["ports", "profils", "tenues", "vetements"]);
-console.log("✓ temps réel : vêtements, tenues, journal et profil publiés");
+assert.deepEqual(pub.rows.map((r) => r.tablename), ["essayages", "ports", "profils", "tenues", "vetements"]);
+console.log("✓ temps réel : vêtements, tenues, journal, profil et essayages publiés");
+
+// --- Essayages
+await en(A, `insert into essayages (pieces, image, moteur) values (array['${jean.id}']::uuid[], 'essai-1.jpg', 'flux-2-pro')`);
+assert.equal((await en(B, "select count(*)::int n from essayages"))[0].n, 0);
+await assert.rejects(en(B, `insert into essayages (user_id, image) values ('${A}', 'x.jpg')`), /row-level security/);
+console.log("✓ essayages : privés, un par génération");
 
 console.log("\nTous les tests du backend passent.");

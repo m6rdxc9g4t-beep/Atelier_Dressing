@@ -1,16 +1,18 @@
 import { useMemo, useState } from "react";
-import { CalendarCheck, Heart, Layers, Sparkles, Trash } from "lucide-react";
+import { Camera, CalendarCheck, Download, Heart, Layers, Sparkles, Trash } from "lucide-react";
+import { Feuille } from "../components/Feuille";
 import { Segments, Vide, Vignette } from "../components/Elements";
 import { Mannequin } from "../components/Mannequin";
 import { useToast } from "../components/Toast";
 import { habiller } from "../lib/cabine";
 import { CATEGORIES, LIBELLE_CATEGORIE, LIBELLE_OCCASION } from "../lib/categories";
 import { aujourdhui, dateLongue, depuis, euros } from "../lib/dates";
-import { useDonnees } from "../lib/donnees";
+import { useDonnees, useImage } from "../lib/donnees";
+import { memesPieces } from "../lib/essayage";
 import { messageErreur } from "../lib/supabase";
-import { maintenant, nouvelId, type Tenue, type Vetement } from "../lib/types";
+import { maintenant, nouvelId, type Essayage, type Tenue, type Vetement } from "../lib/types";
 
-type Vue = "tenues" | "journal" | "bilan";
+type Vue = "tenues" | "photos" | "journal" | "bilan";
 
 export function Tenues({ versCabine }: { versCabine: () => void }) {
   const [vue, setVue] = useState<Vue>("tenues");
@@ -26,11 +28,13 @@ export function Tenues({ versCabine }: { versCabine: () => void }) {
         onChange={setVue}
         options={[
           { v: "tenues", l: "Mes tenues" },
+          { v: "photos", l: "Photos" },
           { v: "journal", l: "Journal" },
           { v: "bilan", l: "Bilan" },
         ]}
       />
       {vue === "tenues" && <ListeTenues versCabine={versCabine} />}
+      {vue === "photos" && <Photos versCabine={versCabine} />}
       {vue === "journal" && <Journal />}
       {vue === "bilan" && <Bilan />}
     </section>
@@ -38,7 +42,7 @@ export function Tenues({ versCabine }: { versCabine: () => void }) {
 }
 
 function ListeTenues({ versCabine }: { versCabine: () => void }) {
-  const { tenues, vetements, ports, profil, enregistrerTenue, supprimerTenue, enregistrerPort } = useDonnees();
+  const { tenues, vetements, ports, profil, essayages, enregistrerTenue, supprimerTenue, enregistrerPort } = useDonnees();
   const toast = useToast();
   const [aSupprimer, setASupprimer] = useState<string | null>(null);
   const parId = useMemo(() => new Map(vetements.map((v) => [v.id, v])), [vetements]);
@@ -87,7 +91,12 @@ function ListeTenues({ versCabine }: { versCabine: () => void }) {
               }}
               aria-label={`Essayer « ${t.nom} » en cabine`}
             >
-              <Mannequin avatar={profil.avatar} pieces={pieces} petit libelle={`${t.nom} : ${pieces.map((p) => p.nom).join(", ")}`} />
+              <VisuelTenue
+                essai={essayages.find((e) => memesPieces(e.pieces, pieces.filter((p) => p.categorie !== "autre").map((p) => p.id)))}
+                libelle={`${t.nom} : ${pieces.map((p) => p.nom).join(", ")}`}
+              >
+                <Mannequin avatar={profil.avatar} pieces={pieces} petit libelle={`${t.nom} : ${pieces.map((p) => p.nom).join(", ")}`} />
+              </VisuelTenue>
             </button>
             <div className="carte-tenue__texte">
               <h2 className="carte-tenue__nom">
@@ -268,4 +277,111 @@ function Bilan() {
       )}
     </div>
   );
+}
+
+/** La photo réaliste de la tenue si elle existe, sinon le mannequin. */
+function VisuelTenue({ essai, libelle, children }: { essai?: Essayage; libelle: string; children: React.ReactNode }) {
+  const url = useImage(essai?.image);
+  return url ? <img className="carte-tenue__photo" src={url} alt={libelle} /> : <>{children}</>;
+}
+
+function Photos({ versCabine }: { versCabine: () => void }) {
+  const { essayages, vetements, supprimerEssayage } = useDonnees();
+  const toast = useToast();
+  const [ouverte, setOuverte] = useState<Essayage | null>(null);
+  const parId = useMemo(() => new Map(vetements.map((v) => [v.id, v])), [vetements]);
+  if (!essayages.length)
+    return (
+      <Vide
+        icone={<Camera size={36} />}
+        titre="Aucune photo d'essayage"
+        texte="En cabine, habille le mannequin puis touche « Essayage réaliste » : une vraie photo de toi avec ces pièces arrive ici."
+        action={
+          <button className="bouton bouton--action" onClick={versCabine}>
+            <Sparkles size={18} aria-hidden /> Aller en cabine
+          </button>
+        }
+      />
+    );
+  const pieces = ouverte ? ouverte.pieces.map((id) => parId.get(id)).filter((v): v is Vetement => !!v) : [];
+  return (
+    <>
+      <div className="grille-photos">
+        {essayages.map((e) => (
+          <MiniPhoto key={e.id} e={e} onClick={() => setOuverte(e)} />
+        ))}
+      </div>
+      <Feuille
+        ouverte={!!ouverte}
+        titre="Essayage"
+        large
+        onFermer={() => setOuverte(null)}
+        pied={
+          ouverte && (
+            <>
+              <button
+                className="bouton bouton--action"
+                onClick={() => {
+                  habiller(ouverte.pieces);
+                  setOuverte(null);
+                  versCabine();
+                }}
+              >
+                <Sparkles size={18} aria-hidden /> Ouvrir en cabine
+              </button>
+              <TelechargerPhoto e={ouverte} />
+              <button
+                className="bouton bouton--discret"
+                onClick={() =>
+                  supprimerEssayage(ouverte.id).then(
+                    () => (setOuverte(null), toast("Photo supprimée")),
+                    (err) => toast(messageErreur(err), { erreur: true }),
+                  )
+                }
+              >
+                <Trash size={16} aria-hidden /> Supprimer
+              </button>
+            </>
+          )
+        }
+      >
+        {ouverte && (
+          <div className="essai">
+            <GrandePhoto e={ouverte} />
+            <div className="journal__pieces">
+              {pieces.map((v) => (
+                <Vignette key={v.id} v={v} compacte onClick={() => {}} />
+              ))}
+            </div>
+            <p className="note">
+              {dateLongue(ouverte.cree_le.slice(0, 10))} · {ouverte.moteur}
+            </p>
+          </div>
+        )}
+      </Feuille>
+    </>
+  );
+}
+
+function MiniPhoto({ e, onClick }: { e: Essayage; onClick: () => void }) {
+  const url = useImage(e.image);
+  return (
+    <button className="mini-photo" onClick={onClick} aria-label={`Essayage du ${dateLongue(e.cree_le.slice(0, 10))}`}>
+      {url ? <img src={url} alt="" /> : null}
+    </button>
+  );
+}
+
+function GrandePhoto({ e }: { e: Essayage }) {
+  const url = useImage(e.image);
+  return url ? <img className="essai__photo" src={url} alt="Essayage réaliste" /> : null;
+}
+
+function TelechargerPhoto({ e }: { e: Essayage }) {
+  const url = useImage(e.image);
+  return url ? (
+    <a className="bouton bouton--discret" href={url} download={`essayage-${e.cree_le.slice(0, 10)}.jpg`}>
+      <Download size={16} aria-hidden /> Télécharger
+    </a>
+  ) : null;
 }

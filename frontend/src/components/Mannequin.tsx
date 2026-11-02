@@ -1,6 +1,6 @@
 import { useId, useMemo, useRef, type PointerEvent as PE } from "react";
 import { PLAN } from "../lib/categories";
-import { useImage, useRatio } from "../lib/donnees";
+import { useImage, useMesure } from "../lib/donnees";
 import { HAUTEUR, LARGEUR, rectPiece, tracer, zone } from "../lib/mannequin";
 import type { Avatar, Calage, Vetement } from "../lib/types";
 
@@ -152,10 +152,10 @@ function Piece({
 }) {
   const stockee = useImage(urlForcee ? null : piece.image);
   const url = urlForcee ?? stockee;
-  const ratio = useRatio(url);
+  const mesure = useMesure(url);
   const glisse = useRef<{ x: number; y: number; calage: Calage } | null>(null);
-  if (!url || !ratio) return null;
-  const r = rectPiece(avatar, piece, ratio);
+  if (!url || !mesure) return null;
+  const r = rectPiece(avatar, piece, mesure.ratio, mesure.reperes);
   const z = zone(avatar, piece.categorie, piece.longueur, piece.sous_type);
 
   const versSvg = (e: PE) => {

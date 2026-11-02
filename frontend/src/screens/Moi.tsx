@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, LoaderCircle, RotateCcw, Save, ScanFace, UserRound, X } from "lucide-react";
+import { Camera, LoaderCircle, RotateCcw, Save, ScanFace, Sparkles, UserRound, X } from "lucide-react";
 import { Curseur, Segments } from "../components/Elements";
 import { Feuille } from "../components/Feuille";
 import { Mannequin } from "../components/Mannequin";
 import { useToast } from "../components/Toast";
-import { useDonnees, useReglages } from "../lib/donnees";
+import { useDonnees, useImage, useReglages } from "../lib/donnees";
 import { analyserSilhouette, IAIndisponible, NOM_MOTEUR } from "../lib/ia";
-import { imagePourIA, recadrerCarre } from "../lib/images";
+import { imagePourIA, recadrerCarre, reduireEnJpeg } from "../lib/images";
 import { tailleLisible } from "../lib/mannequin";
 import { messageErreur } from "../lib/supabase";
 import { AVATAR_DEFAUT, type Avatar, type LongueurCheveux, type Morphologie } from "../lib/types";
@@ -34,6 +34,7 @@ export function Moi() {
   const [visageSource, setVisageSource] = useState<File | null>(null);
   const silhouette = useRef<HTMLInputElement>(null);
   const visage = useRef<HTMLInputElement>(null);
+  const photoPied = useImage(a.photo_pied);
 
   // Suit les changements venus d'un autre appareil tant que rien n'est en cours d'édition
   const modifie = prenom !== profil.prenom || JSON.stringify(a) !== JSON.stringify(profil.avatar);
@@ -55,17 +56,47 @@ export function Moi() {
     }
   }
 
-  async function depuisPhoto(f: File) {
+  async function depuisPhoto(f: Blob) {
     setAnalyse(true);
     try {
       const { avatar, moteur } = await analyserSilhouette(await imagePourIA(f, 1024), reglages);
       setA((x) => ({ ...x, ...avatar }));
-      toast(`Proportions estimées par ${NOM_MOTEUR[moteur]}. Ajuste si besoin, puis enregistre.`);
+      toast(`Proportions estimées par ${NOM_MOTEUR[moteur]}. Vérifie, puis enregistre ton mannequin.`);
     } catch (e) {
       toast(e instanceof IAIndisponible ? e.message : "Analyse impossible : " + messageErreur(e), { erreur: true });
     } finally {
       setAnalyse(false);
     }
+  }
+
+  async function choisirPhoto(f: File) {
+    try {
+      const cle = `pied-${Date.now().toString(36)}.jpg`;
+      await depot.ecrireImage(cle, await reduireEnJpeg(f, 1600, 0.9));
+      const ancienne = profil.avatar.photo_pied;
+      // Enregistrée tout de suite (le reste du brouillon aussi)
+      const av = { ...a, photo_pied: cle };
+      setA(av);
+      await enregistrerProfil({ ...profil, prenom: prenom.trim(), avatar: av });
+      if (ancienne) depot.supprimerImage(ancienne).catch(() => {});
+      toast("Photo en pied enregistrée", { action: { label: "Régler le mannequin", faire: () => depuisPhoto(f) } });
+    } catch (e) {
+      toast(messageErreur(e), { erreur: true });
+    }
+  }
+
+  async function reglerAvecPhoto() {
+    if (!a.photo_pied) return;
+    const b = await depot.lireImage(a.photo_pied);
+    if (b) depuisPhoto(b);
+  }
+
+  async function retirerPhoto() {
+    const ancienne = a.photo_pied;
+    const av = { ...a, photo_pied: null };
+    setA(av);
+    await enregistrer(av);
+    if (ancienne) depot.supprimerImage(ancienne).catch(() => {});
   }
 
   return (
@@ -86,17 +117,38 @@ export function Moi() {
         </div>
 
         <div className="moi__reglages">
-          <div className="panneau moi__ia">
-            <ScanFace size={28} aria-hidden className="moi__ia-icone" />
-            <div>
-              <p className="groupe__titre">Créer à partir d'une photo</p>
-              <p className="note">Une photo de toi en pied, de face. L'IA estime ta silhouette, ta carnation et tes cheveux. La photo n'est pas gardée.</p>
+          <div className="panneau moi__photo">
+            <div className="moi__photo-vignette">
+              {photoPied ? <img src={photoPied} alt="Ta photo en pied" /> : <ScanFace size={36} aria-hidden className="moi__ia-icone" />}
             </div>
-            <input ref={silhouette} type="file" accept="image/*" hidden onChange={(e) => (e.target.files?.[0] && depuisPhoto(e.target.files[0]), (e.target.value = ""))} />
-            <button className="bouton bouton--action" onClick={() => silhouette.current?.click()} disabled={analyse}>
-              {analyse ? <LoaderCircle className="tourne" size={18} aria-hidden /> : <Camera size={18} aria-hidden />}
-              {analyse ? "Analyse…" : "Choisir une photo"}
-            </button>
+            <div className="moi__photo-texte">
+              <p className="groupe__titre">Ta photo en pied</p>
+              <p className="note">
+                Elle sert à l'<strong>essayage réaliste</strong> : une vraie photo de toi qui porte tes pièces. De face, debout, bras un peu
+                écartés du corps, vêtements près du corps, fond simple et bonne lumière.
+              </p>
+              <input ref={silhouette} type="file" accept="image/*" hidden onChange={(e) => (e.target.files?.[0] && choisirPhoto(e.target.files[0]), (e.target.value = ""))} />
+              <div className="moi__visage-actions">
+                <button className="bouton bouton--action" onClick={() => silhouette.current?.click()} disabled={analyse}>
+                  <Camera size={18} aria-hidden /> {a.photo_pied ? "Changer de photo" : "Ajouter ma photo"}
+                </button>
+                {a.photo_pied && (
+                  <button className="bouton bouton--discret" onClick={reglerAvecPhoto} disabled={analyse}>
+                    {analyse ? <LoaderCircle className="tourne" size={16} aria-hidden /> : <Sparkles size={16} aria-hidden />}
+                    {analyse ? "Analyse…" : "Régler le mannequin avec l'IA"}
+                  </button>
+                )}
+                {a.photo_pied && (
+                  <button className="bouton bouton--discret" onClick={retirerPhoto}>
+                    <X size={16} aria-hidden /> Retirer
+                  </button>
+                )}
+              </div>
+              <p className="note">
+                Ta photo reste dans ton dressing. Elle n'est envoyée au service d'image (Black Forest Labs) qu'au moment où tu demandes un essayage, et à
+                l'IA choisie (Ollama ou Claude) quand tu règles le mannequin.
+              </p>
+            </div>
           </div>
 
           <div className="panneau formulaire">

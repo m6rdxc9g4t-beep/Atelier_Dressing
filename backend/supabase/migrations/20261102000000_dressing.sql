@@ -3,10 +3,12 @@
 -- a été porté, et le profil du mannequin. Chaque compte ne voit que ses données
 -- (RLS par user_id). Les photos sont dans le bucket privé « dressing », rangées
 -- par compte : <user_id>/<clé>.
+-- Ces tables vivent dans le projet Supabase partagé avec atelier_Cuisine (même
+-- compte de connexion) : noms en français, fonctions préfixées « dressing_ ».
 
 -- ---------------------------------------------------------------- Utilitaires
 
-create or replace function public.maj_horodatage()
+create or replace function public.dressing_maj_horodatage()
 returns trigger
 language plpgsql
 security invoker
@@ -66,7 +68,7 @@ create table public.vetements (
 create index vetements_user_categorie on public.vetements (user_id, categorie);
 
 create trigger vetements_maj before update on public.vetements
-  for each row execute function public.maj_horodatage();
+  for each row execute function public.dressing_maj_horodatage();
 
 -- ---------------------------------------------------------------- Tenues
 
@@ -86,7 +88,7 @@ create table public.tenues (
 create index tenues_user on public.tenues (user_id);
 
 create trigger tenues_maj before update on public.tenues
-  for each row execute function public.maj_horodatage();
+  for each row execute function public.dressing_maj_horodatage();
 
 -- ---------------------------------------------------------------- Journal
 
@@ -101,9 +103,10 @@ create table public.ports (
 );
 
 create index ports_user_date on public.ports (user_id, porte_le desc);
+create index ports_tenue on public.ports (tenue_id);
 
 -- Une pièce supprimée disparaît des tenues (le journal garde la trace).
-create or replace function public.retirer_des_tenues()
+create or replace function public.dressing_retirer_des_tenues()
 returns trigger
 language plpgsql
 security invoker
@@ -119,7 +122,7 @@ end;
 $$;
 
 create trigger vetements_retirer after delete on public.vetements
-  for each row execute function public.retirer_des_tenues();
+  for each row execute function public.dressing_retirer_des_tenues();
 
 -- ---------------------------------------------------------------- Statistiques
 

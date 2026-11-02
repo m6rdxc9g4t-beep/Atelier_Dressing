@@ -17,7 +17,9 @@ interface Fichier {
 export async function exporter(depot: Depot, g: Garderobe, progression?: (fait: number, total: number) => void): Promise<Blob> {
   const cles = [
     ...g.vetements.flatMap((v) => [v.image, v.image_originale]),
+    ...g.essayages.map((e) => e.image),
     g.profil.avatar.visage,
+    g.profil.avatar.photo_pied,
   ].filter((c): c is string => !!c);
   const images: Fichier["images"] = {};
   let fait = 0;
@@ -47,6 +49,7 @@ export async function importer(depot: Depot, fichier: Blob, progression?: (fait:
   }
   if (f.app !== "atelier_dressing" || !f.donnees) throw new Error("Ce fichier n'est pas une sauvegarde d'atelier_Dressing.");
   const { vetements, tenues, ports, profil } = f.donnees;
+  const essayages = f.donnees.essayages ?? [];
   const total = Object.keys(f.images).length + vetements.length + tenues.length + ports.length + 1;
   let fait = 0;
   const avancer = () => progression?.(++fait, total);
@@ -66,6 +69,7 @@ export async function importer(depot: Depot, fichier: Blob, progression?: (fait:
     await depot.ecrirePort(p);
     avancer();
   }
+  for (const e of essayages) await depot.ecrireEssayage(e);
   if (profil) await depot.ecrireProfil(profil);
   avancer();
   return vetements.length;

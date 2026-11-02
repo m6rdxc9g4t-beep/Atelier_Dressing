@@ -8,11 +8,11 @@ Ton dressing en photos et un mannequin qui te ressemble. Tu photographies chaque
 
 | Onglet | |
 |---|---|
-| **Cabine** | Ton mannequin, habillé des photos détourées de tes pièces. Touche une pièce sur le portant pour l'enfiler (une robe remplace le haut et le bas). **Proposer une tenue** : le styliste IA compose jusqu'à 3 tenues selon la météo du jour, l'occasion (travail, soirée, sport…) et ce que tu n'as pas porté depuis longtemps. **Au hasard** fait un tirage instantané sans IA. **Ajuster** : fais glisser une pièce sur le mannequin (molette ou curseur pour la taille) ; le réglage est gardé pour toutes tes tenues. **Enregistrer la tenue**, **Je la porte aujourd'hui**. |
+| **Cabine** | Ton mannequin, habillé des photos détourées de **tes** pièces, posées à l'échelle réelle (épaules du vêtement sur tes épaules, ceinture sur ta taille). **Essayage réaliste** : une vraie photo de toi qui porte ces pièces, générée à partir de ta photo en pied (voir plus bas). Touche une pièce sur le portant pour l'enfiler (une robe remplace le haut et le bas). **Proposer une tenue** : le styliste IA compose jusqu'à 3 tenues selon la météo du jour, l'occasion (travail, soirée, sport…) et ce que tu n'as pas porté depuis longtemps. **Au hasard** fait un tirage instantané sans IA. **Ajuster** : fais glisser une pièce sur le mannequin (molette ou curseur pour la taille) ; le réglage est gardé pour toutes tes tenues. **Enregistrer la tenue**, **Je la porte aujourd'hui**. |
 | **Dressing** | Toutes tes pièces, détourées, par catégorie (hauts, bas, robes, vestes, chaussures, sacs, chapeaux, lunettes, écharpes, bijoux, ceintures). Recherche (« lin », « bleu marine », une marque), filtres saison / favoris / archivées, tri par pièces les moins portées. La fiche montre la pièce sur ton mannequin, combien de fois tu l'as portée et son **coût par port**. Retouche du détourage à partir de la photo d'origine. |
 | **Scanner** | **Prendre une photo** (appareil de l'iPhone) ou **importer plusieurs photos** d'un coup (glisser-déposer sur Mac). Détourage automatique sur l'appareil, réglable (tolérance du fond, ou photo entière). L'IA remplit la fiche pendant ce temps ; tu vérifies, l'aperçu sur ton mannequin se met à jour, puis **Ajouter au dressing**. |
-| **Tenues** | Tes tenues enregistrées (mini-mannequins), le **journal** de ce que tu as porté, et un **bilan** : pièces portées ces 90 derniers jours, valeur du dressing, coût moyen par port, pièces à ressortir du placard, pièces préférées. |
-| **Moi** | Le mannequin qui te ressemble : silhouette (féminine, neutre, masculine), taille, épaules, poitrine, tour de taille, hanches, longueur des jambes, carnation, cheveux, et ta photo dans l'ovale du visage. **Créer à partir d'une photo** : l'IA estime tout ça sur une photo de toi en pied (la photo n'est pas gardée). |
+| **Tenues** | Tes tenues enregistrées (avec leur photo réaliste si tu l'as faite), tes **photos d'essayage**, le **journal** de ce que tu as porté, et un **bilan** : pièces portées ces 90 derniers jours, valeur du dressing, coût moyen par port, pièces à ressortir du placard, pièces préférées. |
+| **Moi** | **Ta photo en pied** (pour l'essayage réaliste) et le mannequin qui te ressemble : silhouette (féminine, neutre, masculine), taille, épaules, poitrine, tour de taille, hanches, longueur des jambes, carnation, cheveux, et ta photo dans l'ovale du visage. **Créer à partir d'une photo** : l'IA estime tout ça sur une photo de toi en pied (la photo n'est pas gardée). |
 
 ![iPhone](design/captures/iphone-1-cabine.png) ![Dressing](design/captures/iphone-2-dressing.png) ![Vérifier une pièce](design/captures/iphone-3b-verifier.png)
 
@@ -20,12 +20,13 @@ Ton dressing en photos et un mannequin qui te ressemble. Tu photographies chaque
 
 | | **Sur cet appareil** (par défaut) | **Synchronisé** |
 |---|---|---|
-| Données et photos | IndexedDB de l'appareil (navigateur, iPhone ou app Mac) | Supabase : Postgres + RLS + bucket privé `dressing` |
-| Compte | aucun | e-mail et mot de passe |
+| Données et photos | IndexedDB de l'appareil (navigateur, iPhone ou app Mac) | Supabase (projet partagé avec atelier_Cuisine) : Postgres + RLS + bucket privé `dressing` |
+| Compte | aucun | e-mail et mot de passe, le même que pour Cuisine |
 | Mac ↔ iPhone | non (sauvegarde / import d'un fichier) | en temps réel |
 | IA | Ollama en local | Ollama ou Claude |
+| Essayage réaliste | non | oui (FLUX.2) |
 
-Sans projet Supabase configuré, l'app démarre directement en mode « Sur cet appareil ». Avec Supabase, l'écran de connexion propose aussi **Continuer sans compte**. **Réglages → Données** exporte tout (pièces, tenues, journal, mannequin et photos) dans un fichier JSON, et l'importe ailleurs : c'est aussi le chemin pour passer du mode local au mode synchronisé.
+L'écran de connexion propose aussi **Continuer sans compte**. **Réglages → Données** exporte tout (pièces, tenues, journal, mannequin et photos) dans un fichier JSON, et l'importe ailleurs : c'est aussi le chemin pour passer du mode local au mode synchronisé.
 
 ## L'IA : Ollama en local, Claude en ligne
 
@@ -42,7 +43,20 @@ Comme les autres apps de la suite, **Réglages → Intelligence artificielle** :
 
 Si le moteur choisi ne répond pas, l'app le dit et propose de basculer sur l'autre. Sans aucune IA, tout reste utilisable : le détourage et les couleurs se font sur l'appareil, la fiche se remplit à la main, et les tenues sont composées par des règles (météo, saison, occasion, harmonie des couleurs, rotation).
 
-> Le mannequin est un **collage** : les photos détourées de tes pièces posées sur une silhouette à tes proportions. Ce n'est pas un essayage virtuel photoréaliste (Ollama et Claude ne génèrent pas d'images), mais c'est instantané, hors ligne, et fidèle à tes vraies pièces.
+## Essayage réaliste : toi, avec tes vrais vêtements
+
+Le mannequin est un **collage** instantané et hors ligne : les photos détourées de tes pièces sur une silhouette à tes proportions. Pour te voir **vraiment** habillé, la Cabine a un bouton **Essayage réaliste** :
+
+1. Dans **Moi**, ajoute une photo de toi en pied (de face, debout, bras un peu écartés, fond simple).
+2. Habille le mannequin en Cabine, puis touche **Essayage réaliste**.
+3. Ta photo et celles des pièces partent vers **FLUX.2** (Black Forest Labs) par la fonction Edge `essayage`. Environ 20 à 40 secondes plus tard, tu as une photo de toi portant ces pièces exactes (couleurs, coupe, col, boutons, logos), avec ton visage, ta silhouette et ton décor. Elle est gardée dans **Tenues → Photos** et s'affiche sur la carte de la tenue.
+
+Ni Ollama ni Claude ne génèrent d'images, d'où ce troisième service. Il demande le mode synchronisé et une clé Black Forest Labs (environ 3 centimes par photo avec `flux-2-pro`, moins avec `flux-2-klein-4b`) :
+
+1. Crée un compte sur [dashboard.bfl.ai](https://dashboard.bfl.ai), ajoute quelques crédits et crée une clé API.
+2. Supabase (projet Atelier_Cuisine) → **Edge Functions → Secrets** : ajoute `BFL_API_KEY`. Facultatif : `BFL_MODEL` (`flux-2-pro` par défaut, `flux-2-max` pour la meilleure qualité, `flux-2-klein-4b` pour le moins cher).
+
+Ta photo en pied ne quitte ton dressing qu'au moment d'un essayage.
 
 ## Installer
 
@@ -99,16 +113,18 @@ cd ../backend/tests
 npm install && npm test   # rejoue les migrations sur PGlite : RLS, déclencheurs, stockage
 ```
 
-## Brancher le mode synchronisé (une fois)
+## Le mode synchronisé
 
-1. Crée un projet Supabase `atelier-dressing` (région Paris), puis :
-   ```bash
-   cd backend
-   supabase link --project-ref <ref>
-   supabase db push                                    # tables, RLS, bucket « dressing »
-   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...    # mode Cloud
-   supabase functions deploy ia-dressing
-   ```
-   Le secret facultatif `ANTHROPIC_MODEL` choisit le modèle (par défaut `claude-sonnet-5-5`).
-2. Copie `frontend/.env.example` en `frontend/.env.local` et renseigne l'URL et la clé publiable du projet.
-3. Dans Supabase, **Authentication → URL Configuration** : mets l'adresse de l'app web en **Site URL** et dans **Redirect URLs**.
+Il est déjà branché : atelier_Dressing utilise le projet Supabase **Atelier_Cuisine** (`hcdiuxznceuixindcvhp`, Paris), dans ses propres tables (`vetements`, `tenues`, `ports`, `profils`, `essayages`) et son bucket `dressing`. Le compte de connexion est le même que pour Cuisine. Migrations appliquées et fonctions `ia-dressing` et `essayage` déployées le 2 novembre 2026. Le secret `ANTHROPIC_API_KEY` est celui de Cuisine.
+
+Pour redéployer après une modification du backend :
+
+```bash
+cd backend
+supabase link --project-ref hcdiuxznceuixindcvhp
+supabase db push
+supabase functions deploy ia-dressing
+supabase functions deploy essayage
+```
+
+Dans Supabase, **Authentication → URL Configuration**, ajoute l'adresse de l'app web de Dressing dans **Redirect URLs** (les liens des e-mails de confirmation y ramènent).

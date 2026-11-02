@@ -1,11 +1,15 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Mode « Synchronisé » : un projet Supabase (Postgres + stockage des photos +
-// fonction IA Claude). La clé publiable est faite pour être embarquée dans
-// l'app : les règles RLS protègent les données de chaque compte.
-// Sans configuration, l'app fonctionne en mode « Sur cet appareil ».
-export const SUPABASE_URL: string = import.meta.env.VITE_SUPABASE_URL ?? "";
-const SUPABASE_KEY: string = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
+// Mode « Synchronisé » : le projet Supabase partagé avec atelier_Cuisine
+// (Postgres + stockage des photos + fonctions IA). Même compte que Cuisine.
+// La clé publiable est faite pour être embarquée dans l'app : les règles RLS
+// protègent les données de chaque compte. VITE_SUPABASE_URL vide (« off »)
+// dans .env.local : l'app fonctionne seulement en mode « Sur cet appareil ».
+const URL_DEFAUT = "https://hcdiuxznceuixindcvhp.supabase.co";
+const CLE_DEFAUT = "sb_publishable_u73IIIZSlDPm-1Aqrq95MQ_wwz4xtGm";
+const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+export const SUPABASE_URL: string = envUrl === "off" ? "" : envUrl || URL_DEFAUT;
+const SUPABASE_KEY: string = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) || CLE_DEFAUT;
 
 export const cloudConfigure = !!(SUPABASE_URL && SUPABASE_KEY);
 

@@ -22,8 +22,8 @@ export interface Rect {
   h: number;
 }
 
-/** Repères verticaux (en part de la hauteur du corps). */
-interface Reperes {
+/** Niveaux verticaux (en part de la hauteur du corps). */
+interface Niveaux {
   menton: number;
   cou: number;
   epaules: number;
@@ -53,15 +53,17 @@ interface Largeurs {
 }
 
 export interface Geometrie {
-  y: Record<keyof Reperes, number>;
+  y: Record<keyof Niveaux, number>;
   l: Largeurs;
   ecartJambes: number;
 }
 
+// Demi-largeurs proches d'un vrai corps (1 cm ≈ 5,35 unités pour 1 m 72) : les
+// photos de tes vêtements, mesurées à l'échelle réelle, tombent alors juste.
 const BASE: Record<Avatar["morphologie"], Omit<Largeurs, "tete" | "cou" | "pied" | "poignet">> = {
-  feminine: { epaules: 66, poitrine: 60, taille: 44, hanches: 68, cuisse: 33, genou: 17, mollet: 18, cheville: 9.5, bras: 13 },
-  masculine: { epaules: 82, poitrine: 70, taille: 58, hanches: 62, cuisse: 32, genou: 18, mollet: 19, cheville: 11, bras: 16 },
-  neutre: { epaules: 74, poitrine: 64, taille: 51, hanches: 65, cuisse: 32, genou: 17.5, mollet: 18.5, cheville: 10, bras: 14.5 },
+  feminine: { epaules: 84, poitrine: 78, taille: 60, hanches: 88, cuisse: 42, genou: 20, mollet: 21, cheville: 11, bras: 15 },
+  masculine: { epaules: 100, poitrine: 88, taille: 74, hanches: 80, cuisse: 40, genou: 22, mollet: 23, cheville: 13, bras: 19 },
+  neutre: { epaules: 92, poitrine: 82, taille: 66, hanches: 84, cuisse: 41, genou: 21, mollet: 22, cheville: 12, bras: 17 },
 };
 
 const borne = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -71,7 +73,7 @@ export function geometrie(a: Avatar): Geometrie {
   const jambes = borne(a.jambes, 0.9, 1.1);
   // Des jambes plus longues remontent l'entrejambe et les hanches.
   const decal = (jambes - 1) * 0.08;
-  const r: Reperes = {
+  const r: Niveaux = {
     menton: 0.125,
     cou: 0.158,
     epaules: 0.185,
@@ -82,14 +84,14 @@ export function geometrie(a: Avatar): Geometrie {
     genoux: 0.735 - decal * 0.5,
     chevilles: 0.955,
   };
-  const y = Object.fromEntries(Object.entries(r).map(([k, v]) => [k, HAUT + v * H])) as Record<keyof Reperes, number>;
+  const y = Object.fromEntries(Object.entries(r).map(([k, v]) => [k, HAUT + v * H])) as Record<keyof Niveaux, number>;
   const e = borne(a.epaules, 0.8, 1.25);
   const p = borne(a.poitrine, 0.8, 1.25);
   const t = borne(a.tour_taille, 0.8, 1.3);
   const hh = borne(a.hanches, 0.8, 1.3);
   const l: Largeurs = {
-    tete: 42,
-    cou: a.morphologie === "masculine" ? 18 : 15,
+    tete: 40,
+    cou: a.morphologie === "masculine" ? 23 : 20,
     epaules: b.epaules * e,
     poitrine: b.poitrine * p,
     taille: b.taille * t,
@@ -98,7 +100,7 @@ export function geometrie(a: Avatar): Geometrie {
     genou: b.genou,
     mollet: b.mollet,
     cheville: b.cheville,
-    pied: 14,
+    pied: 16,
     bras: b.bras,
     poignet: b.bras * 0.55,
   };
@@ -322,9 +324,114 @@ export function placer(z: Rect, ratio: number, categorie: Categorie, calage: Cal
   return { x, y, w, h };
 }
 
-/** Rectangle final d'une pièce sur le mannequin. */
-export function rectPiece(a: Avatar, v: Pick<Vetement, "categorie" | "longueur" | "sous_type" | "calage">, ratio: number): Rect {
-  return placer(zone(a, v.categorie, v.longueur, v.sous_type), ratio, v.categorie, v.calage);
+/**
+ * Repères mesurés sur la photo détourée : largeur aux épaules (hauts, vestes,
+ * robes) et à la ceinture (bas), en part de la largeur de la photo.
+ */
+export interface Reperes {
+  epaules: number | null;
+  ceinture: number | null;
+  /** La photo n'est pas détourée (fond conservé) : pas de mesure possible. */
+  opaque: boolean;
+}
+
+/** Mesure les repères à partir du canal alpha (0-255) d'une photo w × h. */
+export function reperesDepuisAlpha(alpha: ArrayLike<number>, w: number, h: number): Reperes {
+  const ext: [number, number][] = [];
+  let top = -1;
+  let bot = -1;
+  let x0 = w;
+  let x1 = -1;
+  let pleins = 0;
+  for (let y = 0; y < h; y++) {
+    let a = -1;
+    let b = -1;
+    for (let x = 0; x < w; x++) {
+      if (alpha[y * w + x] > 128) {
+        pleins++;
+        if (a < 0) a = x;
+        b = x;
+      }
+    }
+    ext.push([a, b]);
+    if (a >= 0) {
+      if (top < 0) top = y;
+      bot = y;
+      x0 = Math.min(x0, a);
+      x1 = Math.max(x1, b);
+    }
+  }
+  const opaque = pleins > w * h * 0.97;
+  if (top < 0 || opaque) return { epaules: null, ceinture: null, opaque };
+  const H = bot - top + 1;
+  const W = x1 - x0 + 1;
+  const largeur = (p0: number, p1: number, f: (l: number[]) => number) => {
+    const l: number[] = [];
+    for (let y = Math.round(top + p0 * H); y <= Math.round(top + p1 * H); y++) {
+      const [a, b] = ext[Math.min(bot, y)];
+      if (a >= 0) l.push((b - a + 1) / W);
+    }
+    return l.length ? Math.round(f(l) * 1000) / 1000 : null;
+  };
+  const mediane = (l: number[]) => [...l].sort((a, b) => a - b)[Math.floor(l.length / 2)];
+  return {
+    epaules: largeur(0.06, 0.14, (l) => Math.max(...l)),
+    ceinture: largeur(0, 0.03, mediane),
+    opaque,
+  };
+}
+
+/** Une photo à plat montre la moitié du tour : vue de face, un bas paraît ~35 % plus long que large. */
+const ALLONGEMENT_BAS = 1.35;
+
+/**
+ * Rectangle d'une pièce à l'échelle réelle : les épaules du vêtement sur tes
+ * épaules, la ceinture sur ta taille, puis la longueur que donne la photo.
+ * Sans repères (photo non détourée, accessoires), la pièce remplit sa zone.
+ */
+export function rectReel(a: Avatar, v: Pick<Vetement, "categorie" | "longueur" | "sous_type">, ratio: number, r: Reperes | null): Rect | null {
+  if (!r || r.opaque) return null;
+  const g = geometrie(a);
+  const { y, l } = g;
+  if ((v.categorie === "haut" || v.categorie === "veste" || v.categorie === "robe") && r.epaules && r.epaules > 0.15) {
+    const aisance = v.categorie === "veste" ? 1.12 : 1.04;
+    const w = (2 * l.epaules * aisance) / r.epaules;
+    const h = w / ratio;
+    // La ligne d'épaules est vers 10 % du haut de la photo (col au-dessus)
+    return { x: CX - w / 2, y: y.epaules + 6 - 0.1 * h, w, h };
+  }
+  if (v.categorie === "bas" && r.ceinture && r.ceinture > 0.2) {
+    const w = (2 * l.taille * 1.15) / r.ceinture;
+    const naturelle = w / ratio;
+    const longueur = CATEGORIES_AVEC_LONGUEUR.includes(v.categorie) ? (v.longueur ?? longueurParDefaut(v.categorie, v.sous_type)) : null;
+    const haut = y.taille - 4;
+    const voulue = longueur ? basSelonLongueur(g, longueur) - haut : naturelle * ALLONGEMENT_BAS;
+    const h = borne(voulue, naturelle, naturelle * 1.6);
+    return { x: CX - w / 2, y: haut, w, h };
+  }
+  if (v.categorie === "chaussures") {
+    // La paire couvre les deux pieds, posée au sol
+    const w = (g.ecartJambes / 2 + 7 + l.pied * 2 + 8) * 2;
+    const h = w / ratio;
+    return { x: CX - w / 2, y: BAS + 4 - h, w, h };
+  }
+  return null;
+}
+
+/** Rectangle final d'une pièce sur le mannequin (échelle réelle si possible, puis calage). */
+export function rectPiece(
+  a: Avatar,
+  v: Pick<Vetement, "categorie" | "longueur" | "sous_type" | "calage">,
+  ratio: number,
+  reperes: Reperes | null = null,
+): Rect {
+  const z = zone(a, v.categorie, v.longueur, v.sous_type);
+  const reel = rectReel(a, v, ratio, reperes);
+  if (!reel) return placer(z, ratio, v.categorie, v.calage);
+  const s = borne(v.calage.echelle || 1, 0.3, 3);
+  const w = reel.w * s;
+  const h = reel.h * s;
+  return { x: reel.x + (reel.w - w) / 2 + v.calage.dx * z.w, y: reel.y + v.calage.dy * z.h, w, h };
 }
 
 /** Taille lisible : 172 → « 1 m 72 ». */

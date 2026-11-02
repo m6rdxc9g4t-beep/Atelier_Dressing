@@ -12,8 +12,9 @@ import {
 import type { Depot } from "./depot";
 import { profilVide } from "./depot-local";
 import { REGLAGES_IA_DEFAUT, type ReglagesIA } from "./ia";
+import { reperesDepuisAlpha, type Reperes } from "./mannequin";
 import { derniersPorts, nombrePorts } from "./suggestion";
-import { maintenant, type Garderobe, type Port, type Profil, type Tenue, type Vetement } from "./types";
+import { maintenant, type Essayage, type Garderobe, type Port, type Profil, type Tenue, type Vetement } from "./types";
 
 // ---------------------------------------------------------------- Réglages
 
@@ -93,12 +94,14 @@ interface Donnees extends Garderobe {
   enregistrerPort: (p: Port) => Promise<void>;
   supprimerPort: (id: string) => Promise<void>;
   enregistrerProfil: (p: Profil) => Promise<void>;
+  enregistrerEssayage: (e: Essayage) => Promise<void>;
+  supprimerEssayage: (id: string) => Promise<void>;
   recharger: () => Promise<void>;
 }
 
 const Ctx = createContext<Donnees | null>(null);
 
-const VIDE: Garderobe = { vetements: [], tenues: [], ports: [], profil: profilVide() };
+const VIDE: Garderobe = { vetements: [], tenues: [], ports: [], essayages: [], profil: profilVide() };
 
 export function FournisseurDonnees({ depot, children }: { depot: Depot; children: ReactNode }) {
   const [g, setG] = useState<Garderobe>(VIDE);
@@ -185,6 +188,10 @@ export function FournisseurDonnees({ depot, children }: { depot: Depot; children
       const maj = { ...p, maj_le: maintenant() };
       return optimiste((g) => ({ ...g, profil: maj }), () => depot.ecrireProfil(maj));
     };
+    const enregistrerEssayage = (e: Essayage) =>
+      optimiste((g) => ({ ...g, essayages: remplacer(g.essayages, e) }), () => depot.ecrireEssayage(e));
+    const supprimerEssayage = (id: string) =>
+      optimiste((g) => ({ ...g, essayages: g.essayages.filter((e) => e.id !== id) }), () => depot.supprimerEssayage(id));
     return {
       ...g,
       depot,
@@ -199,6 +206,8 @@ export function FournisseurDonnees({ depot, children }: { depot: Depot; children
       enregistrerPort,
       supprimerPort,
       enregistrerProfil,
+      enregistrerEssayage,
+      supprimerEssayage,
       recharger,
     };
   }, [g, depot, chargement, erreur, optimiste, recharger]);
@@ -256,21 +265,50 @@ export function useImage(cle: string | null | undefined): string | null {
   return url;
 }
 
-/** Proportions (largeur / hauteur) d'une photo, pour la poser sur le mannequin. */
-const ratios = new Map<string, number>();
-export function useRatio(url: string | null): number | null {
-  const [r, setR] = useState<number | null>(url ? (ratios.get(url) ?? null) : null);
+/** Proportions et repères (épaules, ceinture) d'une photo, pour la poser sur le mannequin. */
+export interface Mesure {
+  ratio: number;
+  reperes: Reperes | null;
+}
+
+const mesures = new Map<string, Mesure>();
+
+function mesurer(img: HTMLImageElement): Mesure {
+  const ratio = img.naturalWidth / Math.max(1, img.naturalHeight);
+  try {
+    const [w, h] = img.naturalWidth >= img.naturalHeight ? [240, Math.max(1, Math.round(240 / ratio))] : [Math.max(1, Math.round(240 * ratio)), 240];
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return { ratio, reperes: null };
+    ctx.drawImage(img, 0, 0, w, h);
+    const d = ctx.getImageData(0, 0, w, h).data;
+    const alpha = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) alpha[i] = d[i * 4 + 3];
+    return { ratio, reperes: reperesDepuisAlpha(alpha, w, h) };
+  } catch {
+    return { ratio, reperes: null };
+  }
+}
+
+export function useMesure(url: string | null): Mesure | null {
+  const [m, setM] = useState<Mesure | null>(url ? (mesures.get(url) ?? null) : null);
   useEffect(() => {
-    if (!url) return setR(null);
-    const connu = ratios.get(url);
-    if (connu) return setR(connu);
+    if (!url) return setM(null);
+    const connue = mesures.get(url);
+    if (connue) return setM(connue);
+    let actif = true;
     const img = new Image();
     img.onload = () => {
-      const v = img.naturalWidth / Math.max(1, img.naturalHeight);
-      ratios.set(url, v);
-      setR(v);
+      const v = mesurer(img);
+      mesures.set(url, v);
+      if (actif) setM(v);
     };
     img.src = url;
+    return () => {
+      actif = false;
+    };
   }, [url]);
-  return r;
+  return m;
 }

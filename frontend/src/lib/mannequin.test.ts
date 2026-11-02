@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { geometrie, placer, rectPiece, tailleLisible, tracer, zone } from "./mannequin";
+import { geometrie, placer, rectPiece, rectReel, reperesDepuisAlpha, tailleLisible, tracer, zone } from "./mannequin";
 import { AVATAR_DEFAUT, CALAGE_NEUTRE } from "./types";
 
 describe("mannequin", () => {
@@ -59,5 +59,40 @@ describe("mannequin", () => {
   it("écrit la taille", () => {
     expect(tailleLisible(172)).toBe("1 m 72");
     expect(tailleLisible(205)).toBe("2 m 05");
+  });
+});
+
+describe("pièces à l'échelle réelle", () => {
+  /** Alpha synthétique : un pantalon (ceinture 60 % de la largeur, jambes qui s'écartent). */
+  function pantalon(w = 100, h = 190) {
+    const a = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const demi = 30 + (20 * y) / h;
+      for (let x = 0; x < w; x++) if (Math.abs(x - w / 2) <= demi) a[y * w + x] = 255;
+    }
+    return a;
+  }
+
+  it("mesure la ceinture et les épaules", () => {
+    const r = reperesDepuisAlpha(pantalon(), 100, 190);
+    expect(r.opaque).toBe(false);
+    expect(r.ceinture!).toBeGreaterThan(0.58);
+    expect(r.ceinture!).toBeLessThan(0.66);
+    expect(reperesDepuisAlpha(new Uint8Array(100).fill(255), 10, 10).opaque).toBe(true);
+  });
+
+  it("cale la ceinture sur la taille et descend aux chevilles", () => {
+    const r = reperesDepuisAlpha(pantalon(), 100, 190);
+    const v = { categorie: "bas" as const, longueur: null, sous_type: "pantalon", calage: CALAGE_NEUTRE };
+    const rect = rectPiece(AVATAR_DEFAUT, v, 100 / 190, r);
+    const g = geometrie(AVATAR_DEFAUT);
+    expect(rect.w * r.ceinture!).toBeCloseTo(2 * g.l.taille * 1.15, 0);
+    expect(rect.y).toBeCloseTo(g.y.taille - 4, 0);
+    expect(rect.y + rect.h).toBeGreaterThan(g.y.genoux);
+  });
+
+  it("revient à la zone sans repères (photo non détourée)", () => {
+    const v = { categorie: "bas" as const, longueur: null, sous_type: "", calage: CALAGE_NEUTRE };
+    expect(rectReel(AVATAR_DEFAUT, v, 0.5, { epaules: null, ceinture: null, opaque: true })).toBeNull();
   });
 });
