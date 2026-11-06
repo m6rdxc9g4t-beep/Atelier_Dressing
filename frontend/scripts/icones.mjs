@@ -5,7 +5,7 @@ import sharp from "sharp";
 
 const arrondi = await readFile(new URL("../public/icone.svg", import.meta.url), "utf8");
 // Version carrée (iPhone arrondit lui-même les coins ; zone de sécurité Android)
-const carre = arrondi.replace(' rx="230"', "");
+const carre = arrondi.replace(' rx="225"', "").replace(' rx="223"', "");
 
 const sorties = [
   [carre, "apple-touch-icon.png", 180],
