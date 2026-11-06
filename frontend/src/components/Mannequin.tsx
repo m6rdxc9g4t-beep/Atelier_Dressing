@@ -64,24 +64,15 @@ export function Mannequin({ avatar, pieces, selection, onSelection, onCalage, pe
           <stop offset="1" stopColor="#000" stopOpacity="0.12" />
         </radialGradient>
         <radialGradient id={`sol-${id}`} cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor="var(--signature)" stopOpacity="0.35" />
-          <stop offset="1" stopColor="var(--signature)" stopOpacity="0" />
+          <stop offset="0" stopColor="var(--ombre-sol)" stopOpacity="0.28" />
+          <stop offset="1" stopColor="var(--ombre-sol)" stopOpacity="0" />
         </radialGradient>
         <clipPath id={`visage-${id}`}>
           <ellipse cx={t.cx} cy={t.cy} rx={t.rx} ry={t.ry} />
         </clipPath>
-        {!petit && (
-          <filter id={`neon-${id}`} x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="4" result="flou" />
-            <feMerge>
-              <feMergeNode in="flou" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        )}
       </defs>
 
-      {/* Lueur au sol */}
+      {/* Ombre au sol */}
       <ellipse cx={LARGEUR / 2} cy={962} rx={150} ry={22} fill={`url(#sol-${id})`} />
 
       {/* Corps : cheveux de dos, bras, silhouette, tête */}
@@ -105,8 +96,8 @@ export function Mannequin({ avatar, pieces, selection, onSelection, onCalage, pe
           <path d={trace.cheveuxAvant} fill={avatar.cheveux_couleur} />
         )}
       </g>
-      {/* Contour néon du mannequin */}
-      <g className="mannequin__contour" filter={petit ? undefined : `url(#neon-${id})`}>
+      {/* Contour fin du mannequin */}
+      <g className="mannequin__contour">
         <path d={trace.brasGauche} />
         <path d={trace.brasDroit} />
         <path d={trace.corps} />

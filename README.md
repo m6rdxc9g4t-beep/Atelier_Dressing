@@ -1,6 +1,6 @@
 # atelier_Dressing
 
-Ton dressing en photos et un mannequin qui te ressemble. Tu photographies chaque vêtement et accessoire : l'app le **détoure**, l'**IA le reconnaît** (catégorie, couleurs, matière, saisons, occasions, chaleur), puis tu l'essaies **sur ton mannequin** pour composer tes tenues. Une seule app, sur **Mac** (app à double-cliquer) et sur **iPhone** (app sur l'écran d'accueil), dans la charte « néon monochrome » de la suite Atelier : toute l'app en **champagne**.
+Ton dressing en photos et un mannequin qui te ressemble. Tu photographies chaque vêtement et accessoire : l'app le **détoure**, l'**IA le reconnaît** (catégorie, couleurs, matière, saisons, occasions, chaleur), puis tu l'essaies **sur ton mannequin** pour composer tes tenues. Une seule app, sur **Mac** (app à double-cliquer) et sur **iPhone** (app sur l'écran d'accueil), dans la charte v2 « Linear » de la suite Atelier : structure neutre en clair comme en sombre, accent **vieux rose**, et les photos de tes pièces au premier plan.
 
 ![Cabine sur Mac](design/captures/mac-1-cabine.png)
 
@@ -113,7 +113,7 @@ L'app web est hébergée sur Vercel (équipe FiKozZ, projet `atelier-dressing`, 
 │    ou Claude : CLI du Mac ────┼──▶ claude -p (ton abonnement)
 │    iPhone → ia_demandes ──────┼──▶ relais par l'app Mac
 └───────────────────────────────┘
-design/  charte néon champagne, icône, captures
+design/  charte v2 « Linear », icône, captures
 ```
 
 | Dossier | Contenu |

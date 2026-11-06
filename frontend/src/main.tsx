@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 import "./styles/atelier-brand/atelier-brand.css";
 import "./styles/tokens.css";
 import "./styles/app.css";
-import "./styles/neon.css";
 import "./styles/dressing.css";
 import App from "./App";
 import { estTauri } from "./lib/plateforme";

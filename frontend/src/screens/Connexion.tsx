@@ -8,7 +8,7 @@ const supabase = client!;
 
 type Mode = "connexion" | "inscription" | "oubli";
 
-/** Mise en page commune aux écrans de connexion : marque, titre néon, accroche (comme atelier_Suivi). */
+/** Mise en page commune aux écrans de connexion : marque, titre, accroche, formulaire posé à plat (comme le portail). */
 function CadreConnexion({ titre, accroche, children }: { titre: string; accroche: string; children: ReactNode }) {
   return (
     <main className="connexion" data-tauri-drag-region>
@@ -19,7 +19,7 @@ function CadreConnexion({ titre, accroche, children }: { titre: string; accroche
             <Shirt />
           </span>
           <span className="atelier-brand__name">
-            <span className="atelier-brand__prefix">atelier_</span>Dressing
+            <span className="atelier-brand__prefix">Atelier </span>Dressing
           </span>
         </span>
         <h1 className="connexion__titre">{titre}</h1>

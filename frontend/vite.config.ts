@@ -1,12 +1,46 @@
+import { readFileSync } from "node:fs";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vitest/config";
+import { defineConfig, type Plugin } from "vitest/config";
 import { VitePWA } from "vite-plugin-pwa";
+
+/**
+ * Préférence de thème commune à la suite (docs/SUITE.md §1.5 d'Atelier_Projets) : la copie verbatim
+ * src/styles/atelier-brand/atelier-theme.js est insérée telle quelle dans <head>, en script bloquant,
+ * pour poser le thème avant le premier affichage (dev, build Vercel et app Mac).
+ *
+ * Juste avant, une reprise unique de l'ancien choix du Dressing (« theme » dans localStorage
+ * « dressing.reglages » : dark, light ou auto) : s'il n'existe pas encore de préférence commune,
+ * il le devient (auto → system), puis la clé est retirée des réglages.
+ */
+const REPRISE_THEME = `(function () {
+  try {
+    var r = JSON.parse(localStorage.getItem("dressing.reglages") || "null");
+    if (!r || !("theme" in r)) return;
+    var ancien = r.theme === "auto" ? "system" : r.theme;
+    delete r.theme;
+    localStorage.setItem("dressing.reglages", JSON.stringify(r));
+    var connu = /(?:^|; )atelier_theme=/.test(document.cookie) || localStorage.getItem("atelier:theme") !== null;
+    if (!connu && (ancien === "light" || ancien === "dark" || ancien === "system")) localStorage.setItem("atelier:theme", ancien);
+  } catch (e) {}
+})();`;
+
+function themeAtelier(): Plugin {
+  const fichier = new URL("./src/styles/atelier-brand/atelier-theme.js", import.meta.url);
+  return {
+    name: "atelier-theme",
+    transformIndexHtml: () => [
+      { tag: "script", children: REPRISE_THEME, injectTo: "head" },
+      { tag: "script", children: readFileSync(fichier, "utf8"), injectTo: "head" },
+    ],
+  };
+}
 
 // L'app Mac (Tauri) charge le même build ; TAURI_ENV_PLATFORM est défini par la CLI Tauri.
 const pourTauri = !!process.env.TAURI_ENV_PLATFORM;
 
 export default defineConfig({
   plugins: [
+    themeAtelier(),
     react(),
     VitePWA({
       disable: pourTauri,
@@ -24,8 +58,8 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         display: "standalone",
-        background_color: "#141312",
-        theme_color: "#141312",
+        background_color: "#0f1012",
+        theme_color: "#0f1012",
         icons: [
           { src: "icone-192.png", sizes: "192x192", type: "image/png" },
           { src: "icone-512.png", sizes: "512x512", type: "image/png" },
