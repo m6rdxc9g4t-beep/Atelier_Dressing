@@ -1,5 +1,5 @@
 // Cabine en 3D : le modèle 3D (GLB) tiré de ta photo d'essayage par TRELLIS.2,
-// posé sur le socle lumineux de la cabine. Tu tournes autour au doigt.
+// posé sur un sol neutre avec son ombre douce. Tu tournes autour au doigt.
 // three.js n'est chargé que pour cette vue (import paresseux dans Cabine).
 
 import { useEffect, useRef, useState } from "react";
@@ -66,30 +66,29 @@ export default function Vue3D({ url, libelle }: { url: string; libelle: string }
     controles.maxPolarAngle = 2.0;
     controles.autoRotateSpeed = 2.2;
 
-    const signature = getComputedStyle(document.documentElement).getPropertyValue("--atelier-signature").trim() || "#e6c79c";
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x2a2420, 0.9));
+    // Lumière de studio neutre : les couleurs des vêtements restent justes.
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x2a2b30, 0.9));
     const cle = new THREE.DirectionalLight(0xffffff, 1.6);
     cle.position.set(0.8, 2.2, 2.4);
     scene.add(cle);
-    const contre = new THREE.DirectionalLight(new THREE.Color(signature), 0.9);
+    const contre = new THREE.DirectionalLight(0xe8eaf0, 0.9);
     contre.position.set(-1.2, 1.8, -2.4);
     scene.add(contre);
 
-    // Socle lumineux, dans la couleur de l'app
+    // Ombre de contact au sol, neutre
     const c = document.createElement("canvas");
     c.width = c.height = 256;
     const cs = c.getContext("2d");
     if (cs) {
       const grad = cs.createRadialGradient(128, 128, 0, 128, 128, 128);
-      grad.addColorStop(0, signature);
-      grad.addColorStop(1, "transparent");
-      cs.globalAlpha = 0.45;
+      grad.addColorStop(0, "rgb(0 0 0 / 0.5)");
+      grad.addColorStop(1, "rgb(0 0 0 / 0)");
       cs.fillStyle = grad;
       cs.fillRect(0, 0, 256, 256);
     }
-    const lueur = new THREE.CanvasTexture(c);
-    lueur.colorSpace = THREE.SRGBColorSpace;
-    const disque = new THREE.Mesh(new THREE.CircleGeometry(0.75, 48), new THREE.MeshBasicMaterial({ map: lueur, transparent: true, depthWrite: false }));
+    const ombre = new THREE.CanvasTexture(c);
+    ombre.colorSpace = THREE.SRGBColorSpace;
+    const disque = new THREE.Mesh(new THREE.CircleGeometry(0.75, 48), new THREE.MeshBasicMaterial({ map: ombre, transparent: true, depthWrite: false }));
     disque.rotation.x = -Math.PI / 2;
     disque.position.y = 0.002;
     scene.add(disque);
@@ -119,7 +118,7 @@ export default function Vue3D({ url, libelle }: { url: string; libelle: string }
       controles.dispose();
       if (moteur.current?.modele) libererObjet(moteur.current.modele);
       disque.geometry.dispose();
-      lueur.dispose();
+      ombre.dispose();
       scene.environment?.dispose();
       pmrem.dispose();
       renderer.dispose();

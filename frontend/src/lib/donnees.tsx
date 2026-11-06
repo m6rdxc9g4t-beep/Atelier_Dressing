@@ -18,10 +18,10 @@ import { maintenant, type Essayage, type Garderobe, type Port, type Profil, type
 
 // ---------------------------------------------------------------- Réglages
 
-export type Theme = "dark" | "light" | "auto";
+// Le thème n'est plus un réglage du Dressing : c'est la préférence commune à la suite
+// (window.atelierTheme, styles/atelier-brand/atelier-theme.js), choisie dans Réglages → Apparence.
 
 export interface Reglages extends ReglagesIA {
-  theme: Theme;
   /** Météo automatique (position de l'appareil) pour les propositions de tenue. */
   meteo: boolean;
   /** Essayage réaliste : Hugging Face (gratuit, Leffa + TRELLIS.2) ou FLUX.2 (payant, mode synchronisé). */
@@ -31,7 +31,7 @@ export interface Reglages extends ReglagesIA {
 }
 
 const CLE_REGLAGES = "dressing.reglages";
-const DEFAUT: Reglages = { ...REGLAGES_IA_DEFAUT, theme: "dark", meteo: true, moteurEssayage: "hf", jetonHF: "" };
+const DEFAUT: Reglages = { ...REGLAGES_IA_DEFAUT, meteo: true, moteurEssayage: "hf", jetonHF: "" };
 
 let reglagesCourants: Reglages = (() => {
   try {
@@ -50,7 +50,6 @@ export function majReglages(partiel: Partial<Reglages>) {
   } catch {
     /* stockage plein ou privé */
   }
-  if (partiel.theme) appliquerTheme(partiel.theme);
   abonnes.forEach((f) => f());
 }
 
@@ -69,19 +68,33 @@ export function lireReglages(): Reglages {
   return reglagesCourants;
 }
 
-/** Néon = data-theme="dark" + classe dark ; clair = data-theme="light" (même logique que index.html). */
-export function appliquerTheme(theme: Theme = reglagesCourants.theme) {
-  const clair = theme === "light" || (theme === "auto" && window.matchMedia?.("(prefers-color-scheme: light)").matches);
-  const racine = document.documentElement;
-  racine.setAttribute("data-theme", clair ? "light" : "dark");
-  racine.classList.toggle("dark", !clair);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", clair ? "#f6f4f4" : "#141312");
+/** Couleur de la barre du navigateur / de l'iPhone : --atelier-bg du thème affiché. */
+function majCouleurBarre() {
+  const sombre = document.documentElement.dataset.theme === "dark";
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", sombre ? "#0f1012" : "#fbfbfc");
 }
 
-if (typeof window !== "undefined") {
-  window.matchMedia?.("(prefers-color-scheme: light)").addEventListener?.("change", () => {
-    if (reglagesCourants.theme === "auto") appliquerTheme("auto");
-  });
+/** Thème : préférence commune à la suite (Système, Clair ou Sombre). */
+export function useTheme(): [AtelierThemePreference, (p: AtelierThemePreference) => void] {
+  const pref = useSyncExternalStore(
+    (f) => {
+      window.addEventListener("atelier-theme", f);
+      document.addEventListener("visibilitychange", f);
+      return () => {
+        window.removeEventListener("atelier-theme", f);
+        document.removeEventListener("visibilitychange", f);
+      };
+    },
+    () => window.atelierTheme?.get() ?? "system",
+  );
+  return [pref, (p) => window.atelierTheme?.set(p)];
+}
+
+if (typeof window !== "undefined" && typeof document !== "undefined") {
+  majCouleurBarre();
+  window.addEventListener("atelier-theme", majCouleurBarre);
+  window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", majCouleurBarre);
+  document.addEventListener("visibilitychange", majCouleurBarre);
 }
 
 // ---------------------------------------------------------------- Données

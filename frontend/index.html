@@ -1,38 +1,23 @@
 <!doctype html>
-<html lang="fr" data-atelier-app="dressing" data-theme="dark" class="dark">
+<html lang="fr" data-atelier-app="dressing">
   <head>
     <meta charset="UTF-8" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <title>atelier_Dressing</title>
+    <title>Atelier Dressing</title>
     <meta name="description" content="Ton dressing en photos, ton mannequin et tes tenues." />
     <link rel="icon" type="image/svg+xml" href="/icone.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Dressing" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#141312" />
-    <script>
-      // Anti-flash : pose le thème choisi dans les réglages (néon par défaut) avant le premier rendu.
-      // Même logique que appliquerTheme (src/lib/donnees.tsx).
-      (function () {
-        var theme = "dark";
-        try {
-          theme = JSON.parse(localStorage.getItem("dressing.reglages") || "{}").theme || "dark";
-        } catch (e) {}
-        if (theme === "auto") {
-          theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-        }
-        if (theme !== "light") theme = "dark";
-        var racine = document.documentElement;
-        racine.setAttribute("data-theme", theme);
-        racine.classList.toggle("dark", theme === "dark");
-        document.querySelector('meta[name="theme-color"]').setAttribute("content", theme === "dark" ? "#141312" : "#f6f4f4");
-      })();
-    </script>
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- = --atelier-bg du thème affiché (mis à jour par src/lib/donnees.tsx). Le thème lui-même
+         (préférence commune à la suite) est posé avant l'affichage par atelier-theme.js, inséré
+         en fin de <head> par vite.config.ts : data-theme + classe dark sur <html>. -->
+    <meta name="theme-color" content="#0f1012" />
   </head>
   <body>
     <div id="root"></div>

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Cloud, Cpu, Download, LoaderCircle, ShieldCheck, Sparkles, Upload } from "lucide-react";
+import { Cloud, Cpu, Download, LoaderCircle, Monitor, Moon, ShieldCheck, Sparkles, Sun, Upload } from "lucide-react";
 import { MODELES_CLAUDE, statutClaude } from "../lib/claude";
 import { etatRelais } from "../lib/relais";
 import { Feuille } from "../components/Feuille";
 import { useToast } from "../components/Toast";
-import { useDonnees, useReglages } from "../lib/donnees";
+import { useDonnees, useReglages, useTheme } from "../lib/donnees";
 import { jetonValide, PAGE_JETONS } from "../lib/hf";
 import { ollamaDisponible, type ModeIA } from "../lib/ia";
 import { estInstallee, estIOS, estTauri } from "../lib/plateforme";
@@ -23,6 +23,7 @@ export function Reglages({
   versConnexion: () => void;
 }) {
   const [r, maj] = useReglages();
+  const [theme, choisirTheme] = useTheme();
   const toast = useToast();
   const donnees = useDonnees();
   const iPhoneNonInstalle = estIOS && !estInstallee && !estTauri;
@@ -261,13 +262,13 @@ export function Reglages({
           <div className="segments" role="radiogroup" aria-label="Thème">
             {(
               [
-                ["dark", "Néon"],
-                ["light", "Clair"],
-                ["auto", "Selon le système"],
+                ["system", "Système", Monitor],
+                ["light", "Clair", Sun],
+                ["dark", "Sombre", Moon],
               ] as const
-            ).map(([v, l]) => (
-              <button key={v} role="radio" aria-checked={r.theme === v} className="segment" aria-selected={r.theme === v} onClick={() => maj({ theme: v })}>
-                {l}
+            ).map(([v, l, Icone]) => (
+              <button key={v} role="radio" aria-checked={theme === v} className="segment" aria-selected={theme === v} onClick={() => choisirTheme(v)}>
+                <Icone size={14} aria-hidden /> {l}
               </button>
             ))}
           </div>

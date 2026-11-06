@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Layers, PersonStanding, ScanLine, Settings, Shirt, UserRound } from "lucide-react";
+import { APropos } from "./components/APropos";
 import { FournisseurToast } from "./components/Toast";
 import type { Depot } from "./lib/depot";
 import { DepotCloud } from "./lib/depot-cloud";
@@ -139,6 +140,7 @@ function Coque({ email, versConnexion }: { email: string | null; versConnexion: 
   const { erreur, chargement, vetements } = useDonnees();
   const [onglet, setOnglet] = useState<Onglet>(lireHash);
   const [reglages, setReglages] = useState(false);
+  const [aPropos, setAPropos] = useState(false);
 
   useEffect(() => {
     const surHash = () => setOnglet(lireHash());
@@ -167,14 +169,14 @@ function Coque({ email, versConnexion }: { email: string | null; versConnexion: 
       <nav className="navigation" aria-label="Sections">
         <div className="navigation__marque" data-tauri-drag-region>
           {/* Marque commune de la suite Atelier (atelier-brand.css) */}
-          <span className="atelier-brand">
+          <button type="button" className="atelier-brand" aria-haspopup="dialog" onClick={() => setAPropos(true)}>
             <span className="atelier-brand__tile" aria-hidden="true">
               <Shirt />
             </span>
             <span className="atelier-brand__name">
-              <span className="atelier-brand__prefix">atelier_</span>Dressing
+              <span className="atelier-brand__prefix">Atelier </span>Dressing
             </span>
-          </span>
+          </button>
         </div>
         <ul className="navigation__liste">
           {onglets.map((o) => (
@@ -184,7 +186,9 @@ function Coque({ email, versConnexion }: { email: string | null; versConnexion: 
                 aria-current={onglet === o.id ? "page" : undefined}
                 onClick={() => aller(o.id)}
               >
-                <o.icone size={22} aria-hidden strokeWidth={onglet === o.id ? 2.4 : 1.8} />
+                <span className="onglet__icone" aria-hidden>
+                  <o.icone size={22} />
+                </span>
                 <span className="onglet__label">{o.label}</span>
                 {!!o.compte && (
                   <span className="onglet__compte onglet__compte--neutre">
@@ -197,14 +201,27 @@ function Coque({ email, versConnexion }: { email: string | null; versConnexion: 
           ))}
         </ul>
         <button className="onglet navigation__reglages" onClick={() => setReglages(true)}>
-          <Settings size={22} aria-hidden strokeWidth={1.8} />
+          <span className="onglet__icone" aria-hidden>
+            <Settings size={22} />
+          </span>
           <span className="onglet__label">Réglages</span>
         </button>
       </nav>
 
-      <button className="bouton-icone reglages-mobile" onClick={() => setReglages(true)} aria-label="Réglages">
-        <Settings size={22} />
-      </button>
+      {/* iPhone : bandeau du haut avec la marque et les réglages (la navigation est en bas) */}
+      <header className="bandeau-mobile">
+        <button type="button" className="atelier-brand" aria-haspopup="dialog" onClick={() => setAPropos(true)}>
+          <span className="atelier-brand__tile" aria-hidden="true">
+            <Shirt />
+          </span>
+          <span className="atelier-brand__name">
+            <span className="atelier-brand__prefix">Atelier </span>Dressing
+          </span>
+        </button>
+        <button className="bouton-icone" onClick={() => setReglages(true)} aria-label="Réglages">
+          <Settings size={20} />
+        </button>
+      </header>
 
       <main id="contenu" className="contenu">
         <div className="barre-glisser" data-tauri-drag-region aria-hidden />
@@ -226,6 +243,7 @@ function Coque({ email, versConnexion }: { email: string | null; versConnexion: 
         )}
       </main>
 
+      <APropos ouverte={aPropos} onFermer={() => setAPropos(false)} />
       <Reglages
         ouverte={reglages}
         onFermer={() => setReglages(false)}
