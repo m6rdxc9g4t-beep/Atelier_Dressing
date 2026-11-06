@@ -1,6 +1,6 @@
 # Instructions pour Claude — `atelier_Dressing`
 
-Avant toute modification, lis [`README.md`](README.md) et [`design/DESIGN.md`](design/DESIGN.md) (charte néon). Interface, libellés, messages, commentaires et réponses de l'IA : **en français**.
+Avant toute modification, lis [`README.md`](README.md) et [`design/DESIGN.md`](design/DESIGN.md) (charte v2 « Linear » de la suite). Interface, libellés, messages, commentaires et réponses de l'IA : **en français**.
 
 ## Stack (la même que les autres apps de la suite)
 
@@ -27,7 +27,7 @@ Avant toute modification, lis [`README.md`](README.md) et [`design/DESIGN.md`](d
 - La 3D vient de TRELLIS.2 à partir de la photo d'essayage (Leffa ou FLUX.2) : pas de 3D reconstruite à la main. Leffa ne pose qu'une pièce par passage (bas, puis haut, puis veste ; robe) ; les erreurs des démos passent par `messageHF` (quota traduit avec le délai). Ne jamais versionner les photos des boutiques ni de l'utilisateur dans le dépôt.
 - Une photo remplacée prend une **nouvelle clé** (le cache d'URL et le cache IndexedDB sont indexés par clé).
 - Ce que l'IA renvoie est toujours vérifié par l'utilisateur avant d'être enregistré (scanner : fiche à vérifier ; silhouette : réglages à enregistrer).
-- Design : charte « néon monochrome » de la suite Atelier, signature **champagne** (`#E6C79C` en néon, `#9C7643` en clair) posée dans `tokens.css` (le kit ne connaît pas encore Dressing). `frontend/src/styles/atelier-brand/` est une copie exacte du kit de la suite : ne jamais l'éditer ici. `app.css` et `neon.css` reprennent la base commune d'atelier_Cuisine ; ce qui est propre au dressing va dans `dressing.css`. `<html data-atelier-app="dressing">`, thème `data-theme="dark"` + classe `dark` (défaut) ou `data-theme="light"`. Les pastilles de couleur des vêtements montrent la vraie couleur, jamais la signature. Cibles tactiles de 44 px.
+- Design : charte v2 « Linear » de la suite Atelier (`Atelier_Deploy/DESIGN.md`, `docs/SUITE.md` §1.7 d'Atelier_Projets) : structure neutre en gris froids, clair et sombre, plat au repos, traits de 1 px, police Inter embarquée, base 13 px sur ordinateur (15 px sur téléphone). Signature **vieux rose `#a16464`** (`<html data-atelier-app="dressing">`), seulement pour l'accent : bouton principal plein, sélection, focus, liens, icône. Pas de halo, de lueur, de grille, de `text-shadow` ni de barre de couleur latérale ; une ombre seulement pour ce qui flotte. `frontend/src/styles/atelier-brand/` (`atelier-brand.css`, `atelier-theme.js`, Inter) est une copie exacte du kit de la suite : ne jamais l'éditer ici (oxlint l'ignore). `tokens.css` branche les jetons de l'app sur `--atelier-*`, `app.css` porte la base et la coquille (barre latérale 232 px, barre haute 44 px), ce qui est propre au dressing va dans `dressing.css`. Thème : préférence commune à la suite (`window.atelierTheme`, script inséré dans `<head>` par `vite.config.ts`), `data-theme` + classe `dark`. Les photos des pièces mènent (fond neutre `--fond-photo`) ; les pastilles de couleur des vêtements montrent la vraie couleur, jamais la signature. Cibles tactiles de 44 px au doigt.
 
 ## Commandes
 
