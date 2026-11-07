@@ -4,12 +4,13 @@
 
 ## Direction : charte v2 « Linear » de la suite Atelier
 
-Comme toute la suite (règles complètes : `Atelier_Deploy/DESIGN.md` ; résumé pour le code : `docs/SUITE.md` §1.7 d'Atelier_Projets), Atelier Dressing suit **un seul système commun** : structure neutre en gris froids, thèmes **clair et sombre**, dense, plat au repos, traits de 1 px, police **Inter** embarquée.
+Comme toute la suite (règles complètes : `Atelier_Deploy/DESIGN.md` ; résumé pour le code : `docs/SUITE.md` §1.7 d'Atelier_Projets), Atelier Dressing suit **un seul système commun** : structure commune **crème** en clair et **bleu nuit** en sombre, dense, plat au repos, traits de 1 px, police **Inter** embarquée.
 
 - **Signature vieux rose `#a16464`** (`data-atelier-app="dressing"`, déjà prévue dans la marque commune) : elle ne sert qu'à l'**accent** — bouton principal plein (texte blanc), sélection (voile de la signature), focus, liens, icône de l'app, cadre de la pièce qu'on ajuste. Rien d'autre n'est teinté.
 - **Plat au repos** : pas de halo, pas de lueur, pas de grille de fond, pas de texte lumineux, pas de barre de couleur à gauche des éléments actifs. Une ombre seulement pour ce qui flotte : feuilles, toast, barre d'action, palette de couleurs, carte « Créer la 3D » posée sur la scène.
 - **Thème** : préférence commune à la suite (Système · Clair · Sombre, Réglages → Apparence), posée avant l'affichage par `atelier-theme.js` ; l'ancien choix du Dressing (« Néon », « Clair », « Selon le système ») est repris une fois.
-- **Couleurs littérales** alignées sur `--atelier-bg` : `#0f1012` (sombre) pour la fenêtre Tauri et le manifeste, `#fbfbfc` (clair) ; la balise `theme-color` suit le thème affiché.
+- **Couleurs littérales** alignées sur `--atelier-bg` : bleu nuit `#0b1220` (sombre) pour la fenêtre Tauri et le manifeste, crème `#f8f4ec` (clair) ; la balise `theme-color` suit le thème affiché.
+- **Cartes de chiffres** (Tenues → Bilan : pièces, part portée, valeur, coût par port) : tuiles plates à coins de 12 px (`--atelier-radius-xl`, comme `.atelier-kpi`), bordure 1 px, surface.
 
 Le kit commun `frontend/src/styles/atelier-brand/` (`atelier-brand.css`, `atelier-theme.js`, police Inter et sa licence) est une **copie exacte** des fichiers de la suite : ne jamais l'éditer ici. `tokens.css` branche les noms de jetons de l'app sur les jetons `--atelier-*`, `app.css` porte la base et la coquille, `dressing.css` ce qui est propre au dressing.
 
@@ -17,7 +18,7 @@ Le kit commun `frontend/src/styles/atelier-brand/` (`atelier-brand.css`, `atelie
 
 Les photos des pièces sont la matière de l'app ; l'interface autour reste neutre.
 
-1. **Les photos détourées** sont posées sur un fond neutre uni (`--fond-photo` : gris très clair en clair, gris moyen en sombre pour que les pièces noires ou marine se lisent encore), sans cadre ni lueur. Le **damier** discret n'apparaît que là où la transparence compte (fiche, retouche, vérification).
+1. **Les photos détourées** sont posées sur un fond neutre uni (`--fond-photo` : la surface crème en clair, un gris ardoise moyen en sombre pour que les pièces noires ou marine se lisent encore ; photos de boutique sur fond blanc), sans cadre ni lueur. Le **damier** discret n'apparaît que là où la transparence compte (fiche, retouche, vérification).
 2. **Le mannequin** : silhouette SVG à tes proportions, peau dans ta carnation, **contour fin et neutre**, ombre de contact au sol. Les pièces s'y posent en couches (chaussures, bas, haut, robe, ceinture, veste, écharpe, bijoux, sac, lunettes, chapeau) avec une ombre portée douce. La pièce qu'on ajuste est cerclée de pointillés dans la signature.
 3. **La 3D** (vue par défaut de la Cabine) : le modèle tiré de ta photo d'essayage, sous une lumière de studio neutre (les couleurs des vêtements restent justes), avec une ombre au sol ; Face · Profil · Dos et rotation au choix (jamais lancée d'office). Tant qu'il n'existe pas, le mannequin reste affiché avec la carte « Créer la 3D » en bas de la scène ; pendant le calcul, un voile flouté dit l'étape en cours.
 4. **Les pastilles de couleur** des pièces montrent la vraie couleur du vêtement, jamais la signature.
