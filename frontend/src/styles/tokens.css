@@ -4,7 +4,7 @@
  * règles complètes dans Atelier_Deploy/DESIGN.md) ; ce qui est propre au dressing
  * est documenté dans design/DESIGN.md.
  *
- * Structure neutre commune à la suite (gris froids, clair et sombre) : tous les fonds,
+ * Structure commune à la suite (crème en clair, bleu nuit en sombre) : tous les fonds,
  * surfaces, textes et traits viennent des jetons --atelier-* de
  * atelier-brand/atelier-brand.css (copie exacte du fichier de la suite, importée avant
  * ce fichier dans main.tsx). data-atelier-app="dressing" sur <html> y pose la signature
@@ -56,7 +56,7 @@
 
   /* Ombres : plat au repos ; seul ce qui flotte (feuilles, menus, toast) a une ombre */
   --ombre-flottant: var(--atelier-glow-strong);
-  --voile: rgb(10 11 13 / 0.45);
+  --voile: rgb(11 18 32 / 0.42);
   /* Ombre de contact sous le mannequin */
   --ombre-sol: #000000;
 
@@ -106,11 +106,12 @@
 }
 
 :root[data-theme="dark"] {
-  --voile: rgb(0 0 0 / 0.55);
-  /* Photos en sombre : un gris moyen, pour que les pièces noires ou marine se lisent encore */
-  --fond-photo: #3a3c43;
-  --damier-a: #43454d;
-  --damier-b: #3a3c43;
+  --voile: rgb(3 6 14 / 0.6);
+  /* Photos en sombre : un gris ardoise moyen (bleu nuit éclairci, très peu saturé), pour que les pièces
+     noires ou marine se lisent encore sans teinter les vêtements */
+  --fond-photo: #3b4354;
+  --damier-a: #444d5f;
+  --damier-b: #3b4354;
   color-scheme: dark;
 }
 

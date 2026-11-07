@@ -71,7 +71,7 @@ export function lireReglages(): Reglages {
 /** Couleur de la barre du navigateur / de l'iPhone : --atelier-bg du thème affiché. */
 function majCouleurBarre() {
   const sombre = document.documentElement.dataset.theme === "dark";
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", sombre ? "#0f1012" : "#fbfbfc");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", sombre ? "#0b1220" : "#f8f4ec");
 }
 
 /** Thème : préférence commune à la suite (Système, Clair ou Sombre). */

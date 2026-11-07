@@ -1049,6 +1049,8 @@
   flex-direction: column;
   gap: 4px;
   padding: var(--s-3) var(--s-4);
+  /* Carte de chiffre de la suite (.atelier-kpi) : coins de 12 px, bordure 1 px, surface, plate */
+  border-radius: var(--atelier-radius-xl);
 }
 
 .tuile-chiffre__valeur {
@@ -1429,7 +1431,7 @@
   gap: var(--s-2);
 }
 
-/* Photos de la boutique : souvent sur fond blanc, montrées telles quelles */
+/* Photos de la boutique : souvent sur fond blanc, montrées telles quelles (cadre blanc, sans raccord visible) */
 .import-lien__photo {
   position: relative;
   aspect-ratio: 3 / 4;
@@ -1437,7 +1439,7 @@
   border: 1px solid var(--contour);
   border-radius: var(--r-champ);
   overflow: hidden;
-  background: #f4f5f7;
+  background: #ffffff;
   cursor: pointer;
 }
 

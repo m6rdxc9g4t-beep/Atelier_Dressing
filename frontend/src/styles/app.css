@@ -872,7 +872,7 @@ input[type="checkbox"] {
 .segment[aria-selected="true"] {
   background: var(--surface);
   color: var(--encre);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 0 0 1px var(--contour);
+  box-shadow: 0 1px 2px rgb(40 30 15 / 0.08), 0 0 0 1px var(--contour);
 }
 
 /* ================================================================= Listes */
